@@ -25,7 +25,9 @@ export default function HomeScreen() {
 
 	return (
 		<>
-			{/* <Text>{errorMsg ? errorMsg : 'Location Loaded'}</Text> */}
+			<Text className="text-red-400 font-thin">
+				{errorMsg ? errorMsg : 'Location Loaded'}
+			</Text>
 			{location && (
 				<MapView
 					style={styles.map}
