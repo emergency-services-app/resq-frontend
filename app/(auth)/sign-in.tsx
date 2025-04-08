@@ -1,18 +1,6 @@
-import {
-	View,
-	Text,
-	Image,
-	TextInput,
-	ActivityIndicator,
-	StyleSheet,
-	TouchableOpacity,
-} from "react-native";
+import { View, Text, Image, TextInput, ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
 import React, { useState } from "react";
-import { LoginProps, RegisterProps } from "@/types";
-import { loginUser } from "@/services/api/auth";
 import { Link, router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-import { TOKEN_KEY } from "@/constants";
 import { useAuth } from "@/context/authContext";
 
 const SigninScreen = () => {
