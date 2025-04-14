@@ -1,18 +1,18 @@
-import { useAuth } from "@/context/authContext";
-import { Redirect, Stack } from "expo-router";
-import React from "react";
+import { useAuthStore } from "@/store/authStore";
+import { Redirect } from "expo-router";
+import React, { useState } from "react";
 
 const Index = () => {
-	const { authState } = useAuth();
+	const { isAuthenticated } = useAuthStore();
 
-	if (!authState?.authenticated) {
-		return (
-			<Redirect
-				href="/sign-in"
-				relativeToDirectory={false}
-			/>
-		);
-	}
+	// if (!isAuthenticated) {
+	// 	return (
+	// 		<Redirect
+	// 			href="/(auth)/sign-in"
+	// 			relativeToDirectory={false}
+	// 		/>
+	// 	);
+	// }
 
 	return (
 		<Redirect
