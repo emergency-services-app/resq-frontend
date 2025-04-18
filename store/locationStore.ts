@@ -1,51 +1,39 @@
 import { create } from "zustand";
+import * as Location from "expo-location";
 
-import { ServiceProviderStore, LocationStore, MarkerData } from "@/types";
+interface LocationState {
+	permissionStatus: Location.PermissionStatus | null;
+	location: Location.LocationObject | null;
+	emergencyResponseId: string | null;
+	setEmergencyResponseId: (id: string) => void;
+	askLocationPermission: () => Promise<void>;
+	getLocation: () => Promise<void>;
+}
 
-export const useLocationStore = create<LocationStore>((set) => ({
-	userLatitude: null,
-	userLongitude: null,
-	userAddress: null,
-	destinationLatitude: null,
-	destinationLongitude: null,
-	destinationAddress: null,
-	setUserLocation: ({ latitude, longitude, address }: { latitude: number; longitude: number; address: string }) => {
-		set(() => ({
-			userLatitude: latitude,
-			userLongitude: longitude,
-			userAddress: address,
-		}));
+export const useLocationStore = create<LocationState>((set) => ({
+	permissionStatus: null,
+	location: null,
+	emergencyResponseId: null,
 
-		// if provider is selected and now new location is set, clear the selected driver
-		const { selectedProvider, clearSelectedProvider } = useServiceProviderStore.getState();
-		if (selectedProvider) clearSelectedProvider();
+	setEmergencyResponseId: (id: string) => set({ emergencyResponseId: id }),
+
+	askLocationPermission: async () => {
+		const { status } = await Location.requestForegroundPermissionsAsync();
+		set({ permissionStatus: status });
 	},
 
-	setDestinationLocation: ({
-		latitude,
-		longitude,
-		address,
-	}: {
-		latitude: number;
-		longitude: number;
-		address: string;
-	}) => {
-		set(() => ({
-			destinationLatitude: latitude,
-			destinationLongitude: longitude,
-			destinationAddress: address,
-		}));
+	getLocation: async () => {
+		const { status } = await Location.getForegroundPermissionsAsync();
+		if (status !== "granted") {
+			const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+			set({ permissionStatus: newStatus });
 
-		// if provider is selected and now new location is set, clear the selected driver
-		const { selectedProvider, clearSelectedProvider } = useServiceProviderStore.getState();
-		if (selectedProvider) clearSelectedProvider();
+			if (newStatus !== "granted") {
+				throw new Error("Location permission denied");
+			}
+		}
+
+		const loc = await Location.getCurrentPositionAsync({});
+		set({ location: loc });
 	},
-}));
-
-export const useServiceProviderStore = create<ServiceProviderStore>((set) => ({
-	providers: [] as MarkerData[],
-	selectedProvider: null,
-	setSelectedProvider: (providerId: number) => set(() => ({ selectedProvider: providerId })),
-	setProviders: (providers: MarkerData[]) => set(() => ({ providers })),
-	clearSelectedProvider: () => set(() => ({ selectedProvider: null })),
 }));

@@ -1,81 +1,55 @@
 import React, { useState } from "react";
-import {
-	View,
-	Text,
-	StyleSheet,
-	TextInput,
-	TouchableOpacity,
-	ScrollView,
-	SafeAreaView,
-	StatusBar,
-	ActivityIndicator,
-	Alert,
-} from "react-native";
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "@expo/vector-icons/FontAwesome";
 import { useThemeStore } from "../../store/themeStore";
 import { lightTheme, darkTheme } from "../../constants/theme";
-import { useAuthStore } from "../../store/authStore";
+import { registerServiceProvider } from "../../services/api/serviceProvider";
 
-const SignUpScreen = () => {
+const ServiceProviderSignupScreen = () => {
 	const router = useRouter();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
-	const { registerUser, error, clearError } = useAuthStore();
 
-	const [name, setName] = useState("");
-	const [age, setAge] = useState("");
-	const [email, setEmail] = useState("");
-	const [phoneNumber, setPhoneNumber] = useState("");
-	const [primaryAddress, setPrimaryAddress] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [showPassword, setShowPassword] = useState(false);
-	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+	const [formData, setFormData] = useState({
+		name: "",
+		email: "",
+		phoneNumber: "",
+		password: "",
+		confirmPassword: "",
+	});
+
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
-	const [isLoading, setIsLoading] = useState(false);
 
 	const validateForm = () => {
 		const newErrors: { [key: string]: string } = {};
 
-		if (!name.trim()) {
+		if (!formData.name.trim()) {
 			newErrors.name = "Name is required";
-		} else if (name.length > 50) {
-			newErrors.name = "Name must be less than 50 characters";
 		}
 
-		if (!age.trim()) {
-			newErrors.age = "Age is required";
-		} else if (isNaN(Number(age)) || Number(age) <= 0) {
-			newErrors.age = "Please enter a valid age";
-		}
-
-		if (!email.trim()) {
+		if (!formData.email.trim()) {
 			newErrors.email = "Email is required";
-		} else if (!/\S+@\S+\.\S+/.test(email)) {
+		} else if (!/\S+@\S+\.\S+/.test(formData.email)) {
 			newErrors.email = "Please enter a valid email";
 		}
 
-		if (!phoneNumber.trim()) {
+		if (!formData.phoneNumber.trim()) {
 			newErrors.phoneNumber = "Phone number is required";
-		} else if (!/^\d{10}$/.test(phoneNumber)) {
+		} else if (!/^\d{10}$/.test(formData.phoneNumber)) {
 			newErrors.phoneNumber = "Please enter a valid 10-digit phone number";
 		}
 
-		if (!primaryAddress.trim()) {
-			newErrors.primaryAddress = "Primary address is required";
-		}
-
-		if (!password.trim()) {
+		if (!formData.password) {
 			newErrors.password = "Password is required";
-		} else if (password.length < 6) {
+		} else if (formData.password.length < 6) {
 			newErrors.password = "Password must be at least 6 characters";
 		}
 
-		if (!confirmPassword.trim()) {
+		if (!formData.confirmPassword) {
 			newErrors.confirmPassword = "Please confirm your password";
-		} else if (password !== confirmPassword) {
+		} else if (formData.password !== formData.confirmPassword) {
 			newErrors.confirmPassword = "Passwords do not match";
 		}
 
@@ -86,30 +60,15 @@ const SignUpScreen = () => {
 	const handleSubmit = async () => {
 		if (!validateForm()) return;
 
-		setIsLoading(true);
-		clearError();
-
 		try {
-			await registerUser({
-				name,
-				age: Number(age),
-				email,
-				phoneNumber: Number(phoneNumber),
-				primaryAddress,
-				password,
-			});
-
-			Alert.alert("Success", "Registration successful! Please verify your email to continue.", [
-				{
-					text: "OK",
-					onPress: () => router.replace("/sign-in"),
-				},
-			]);
-		} catch (error: any) {
+			const { confirmPassword, ...registrationData } = formData;
+			await registerServiceProvider(registrationData);
+			router.push("/verify-service-provider");
+		} catch (error) {
 			console.error("Registration error:", error);
-			Alert.alert("Error", error?.message || "Registration failed. Please try again.", [{ text: "OK" }]);
-		} finally {
-			setIsLoading(false);
+			setErrors({
+				submit: "Registration failed. Please try again.",
+			});
 		}
 	};
 
@@ -120,28 +79,19 @@ const SignUpScreen = () => {
 				backgroundColor={theme.background}
 			/>
 			<ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
-				<TouchableOpacity
-					style={styles.backButton}
-					onPress={() => router.back()}
-				>
-					<Icon
-						name="arrow-left"
-						size={24}
-						color={theme.text}
-					/>
-				</TouchableOpacity>
-
 				<LinearGradient
 					colors={[theme.background, theme.surface]}
 					style={styles.header}
 				>
-					<Text style={[styles.headerText, { color: theme.text }]}>Create Account</Text>
-					<Text style={[styles.headerSubtext, { color: theme.textSecondary }]}>Sign up to get started</Text>
+					<Text style={[styles.headerText, { color: theme.text }]}>Service Provider Registration</Text>
+					<Text style={[styles.headerSubtext, { color: theme.textSecondary }]}>
+						Create your service provider account
+					</Text>
 				</LinearGradient>
 
 				<View style={styles.formContainer}>
 					<View style={styles.inputContainer}>
-						<Text style={[styles.label, { color: theme.text }]}>Full Name</Text>
+						<Text style={[styles.label, { color: theme.text }]}>Name</Text>
 						<View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
 							<Icon
 								name="user"
@@ -151,37 +101,13 @@ const SignUpScreen = () => {
 							/>
 							<TextInput
 								style={[styles.input, { color: theme.text }]}
-								placeholder="Enter your full name"
+								placeholder="Enter your name"
 								placeholderTextColor={theme.textSecondary}
-								value={name}
-								onChangeText={setName}
-								maxLength={50}
-								editable={!isLoading}
+								value={formData.name}
+								onChangeText={(text) => setFormData((prev) => ({ ...prev, name: text }))}
 							/>
 						</View>
 						{errors.name && <Text style={[styles.errorText, { color: theme.error }]}>{errors.name}</Text>}
-					</View>
-
-					<View style={styles.inputContainer}>
-						<Text style={[styles.label, { color: theme.text }]}>Age</Text>
-						<View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-							<Icon
-								name="calendar"
-								size={20}
-								color={theme.textSecondary}
-								style={styles.inputIcon}
-							/>
-							<TextInput
-								style={[styles.input, { color: theme.text }]}
-								placeholder="Enter your age"
-								placeholderTextColor={theme.textSecondary}
-								value={age}
-								onChangeText={setAge}
-								keyboardType="number-pad"
-								editable={!isLoading}
-							/>
-						</View>
-						{errors.age && <Text style={[styles.errorText, { color: theme.error }]}>{errors.age}</Text>}
 					</View>
 
 					<View style={styles.inputContainer}>
@@ -197,11 +123,10 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter your email"
 								placeholderTextColor={theme.textSecondary}
-								value={email}
-								onChangeText={setEmail}
+								value={formData.email}
+								onChangeText={(text) => setFormData((prev) => ({ ...prev, email: text }))}
 								keyboardType="email-address"
 								autoCapitalize="none"
-								editable={!isLoading}
 							/>
 						</View>
 						{errors.email && <Text style={[styles.errorText, { color: theme.error }]}>{errors.email}</Text>}
@@ -220,37 +145,13 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter phone number"
 								placeholderTextColor={theme.textSecondary}
-								value={phoneNumber}
-								onChangeText={setPhoneNumber}
+								value={formData.phoneNumber}
+								onChangeText={(text) => setFormData((prev) => ({ ...prev, phoneNumber: text }))}
 								keyboardType="phone-pad"
 								maxLength={10}
-								editable={!isLoading}
 							/>
 						</View>
 						{errors.phoneNumber && <Text style={[styles.errorText, { color: theme.error }]}>{errors.phoneNumber}</Text>}
-					</View>
-
-					<View style={styles.inputContainer}>
-						<Text style={[styles.label, { color: theme.text }]}>Primary Address</Text>
-						<View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
-							<Icon
-								name="map-marker"
-								size={20}
-								color={theme.textSecondary}
-								style={styles.inputIcon}
-							/>
-							<TextInput
-								style={[styles.input, { color: theme.text }]}
-								placeholder="Enter your primary address"
-								placeholderTextColor={theme.textSecondary}
-								value={primaryAddress}
-								onChangeText={setPrimaryAddress}
-								editable={!isLoading}
-							/>
-						</View>
-						{errors.primaryAddress && (
-							<Text style={[styles.errorText, { color: theme.error }]}>{errors.primaryAddress}</Text>
-						)}
 					</View>
 
 					<View style={styles.inputContainer}>
@@ -266,22 +167,10 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter password"
 								placeholderTextColor={theme.textSecondary}
-								value={password}
-								onChangeText={setPassword}
-								secureTextEntry={!showPassword}
-								editable={!isLoading}
+								value={formData.password}
+								onChangeText={(text) => setFormData((prev) => ({ ...prev, password: text }))}
+								secureTextEntry
 							/>
-							<TouchableOpacity
-								onPress={() => setShowPassword(!showPassword)}
-								style={styles.eyeIcon}
-								disabled={isLoading}
-							>
-								<Icon
-									name={showPassword ? "eye" : "eye-slash"}
-									size={20}
-									color={theme.textSecondary}
-								/>
-							</TouchableOpacity>
 						</View>
 						{errors.password && <Text style={[styles.errorText, { color: theme.error }]}>{errors.password}</Text>}
 					</View>
@@ -299,22 +188,10 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Confirm password"
 								placeholderTextColor={theme.textSecondary}
-								value={confirmPassword}
-								onChangeText={setConfirmPassword}
-								secureTextEntry={!showConfirmPassword}
-								editable={!isLoading}
+								value={formData.confirmPassword}
+								onChangeText={(text) => setFormData((prev) => ({ ...prev, confirmPassword: text }))}
+								secureTextEntry
 							/>
-							<TouchableOpacity
-								onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-								style={styles.eyeIcon}
-								disabled={isLoading}
-							>
-								<Icon
-									name={showConfirmPassword ? "eye" : "eye-slash"}
-									size={20}
-									color={theme.textSecondary}
-								/>
-							</TouchableOpacity>
 						</View>
 						{errors.confirmPassword && (
 							<Text style={[styles.errorText, { color: theme.error }]}>{errors.confirmPassword}</Text>
@@ -326,20 +203,16 @@ const SignUpScreen = () => {
 					)}
 
 					<TouchableOpacity
-						style={[styles.submitButton, { backgroundColor: theme.primary }, isLoading && styles.buttonDisabled]}
+						style={[styles.submitButton, { backgroundColor: theme.primary }]}
 						onPress={handleSubmit}
-						disabled={isLoading}
 					>
-						{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Sign Up</Text>}
+						<Text style={styles.submitButtonText}>Register</Text>
 					</TouchableOpacity>
 
 					<View style={styles.footer}>
 						<View style={styles.footerRow}>
 							<Text style={[styles.footerText, { color: theme.textSecondary }]}>Already have an account? </Text>
-							<TouchableOpacity
-								onPress={() => router.push("/sign-in")}
-								disabled={isLoading}
-							>
+							<TouchableOpacity onPress={() => router.push("/sign-in")}>
 								<Text style={[styles.footerText, { color: theme.primary }]}>Sign In</Text>
 							</TouchableOpacity>
 						</View>
@@ -356,13 +229,6 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		flex: 1,
-	},
-	backButton: {
-		position: "absolute",
-		top: 15,
-		left: 15,
-		zIndex: 10,
-		padding: 10,
 	},
 	header: {
 		padding: 15,
@@ -413,9 +279,6 @@ const styles = StyleSheet.create({
 	inputIcon: {
 		marginRight: 10,
 	},
-	eyeIcon: {
-		marginLeft: 10,
-	},
 	input: {
 		flex: 1,
 		fontSize: 16,
@@ -436,9 +299,6 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
 	},
-	buttonDisabled: {
-		opacity: 0.7,
-	},
 	submitButtonText: {
 		color: "#fff",
 		fontSize: 16,
@@ -450,11 +310,10 @@ const styles = StyleSheet.create({
 	},
 	footerRow: {
 		flexDirection: "row",
-		marginTop: 10,
 	},
 	footerText: {
 		fontSize: 14,
 	},
 });
 
-export default SignUpScreen;
+export default ServiceProviderSignupScreen;

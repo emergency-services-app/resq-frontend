@@ -1,16 +1,21 @@
-import * as Location from "expo-location";
-
 export interface RegisterProps {
 	name: string;
 	age: number;
 	email: string;
-	phoneNumber: string;
-	primaryAddress: number;
+	phoneNumber: number;
+	primaryAddress: string;
 	password: string;
 }
 
+export interface UpdateUserProps {
+	name: string;
+	age: number;
+	email: string;
+	phoneNumber: number;
+	primaryAddress: string;
+}
 export interface LoginProps {
-	phoneNumber: string;
+	phoneNumber: number;
 	password: string;
 }
 
@@ -31,7 +36,7 @@ export interface ChangePasswordProps {
 }
 
 export interface ForgotPasswordProps {
-	email: string;
+	phoneNumber: string;
 }
 
 export interface AuthStore {
@@ -88,4 +93,74 @@ export interface ApiResponseInterface {
 	message: string;
 	statusCode: number;
 	success: boolean;
+}
+
+export interface UserInterface {
+	id: string;
+	name: string;
+	email: string;
+	phoneNumber: number;
+	age: number;
+	isVerified: boolean;
+	primaryAddress: string;
+	role: "user" | "admin";
+}
+
+export interface ILocation {
+	latitude: number;
+	longitude: number;
+}
+
+export interface ICreateEmergencyRequest {
+	id?: string;
+	emergencyType: "police" | "fire_truck" | "ambulance" | "rescue_team";
+	emergencyDescription: string;
+	userLocation: ILocation;
+}
+
+export interface ICreateEmergencyResponse {
+	id?: string;
+	emergencyRequestId: string;
+	destLocation: ILocation;
+}
+
+export interface ICreateEmergencyContact {
+	id?: string;
+	contactName: string;
+	contactNumber: string;
+	contactEmail: string;
+	contactAddress: string;
+}
+
+export interface EmergencyRequestInterface {}
+
+export interface IServiceProvider {
+	id: string;
+	name: string;
+	email: string;
+	phoneNumber: string;
+	isVerified: boolean;
+	createdAt: string;
+	updatedAt: string;
+	role: "service_provider";
+}
+
+export interface IServiceProviderLogin {
+	phoneNumber: string;
+	password: string;
+}
+
+export interface IServiceProviderRegister {
+	name: string;
+	email: string;
+	phoneNumber: string;
+	password: string;
+	serviceType: "police" | "fire_truck" | "ambulance" | "rescue_team";
+}
+
+export interface IServiceProviderUpdate {
+	name?: string;
+	email?: string;
+	phoneNumber?: string;
+	serviceType?: "police" | "fire_truck" | "ambulance" | "rescue_team";
 }

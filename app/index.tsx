@@ -5,14 +5,14 @@ import React, { useState } from "react";
 const Index = () => {
 	const { isAuthenticated } = useAuthStore();
 
-	// if (!isAuthenticated) {
-	// 	return (
-	// 		<Redirect
-	// 			href="/(auth)/sign-in"
-	// 			relativeToDirectory={false}
-	// 		/>
-	// 	);
-	// }
+	if (!isAuthenticated) {
+		return (
+			<Redirect
+				href="/(auth)/sign-in"
+				relativeToDirectory={false}
+			/>
+		);
+	}
 
 	return (
 		<Redirect

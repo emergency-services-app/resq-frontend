@@ -1,91 +1,177 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
-import { Alert } from "react-native";
-import { loginUser, logOutUser, registerUser } from "@/services/api/auth";
+import { loginServiceProvider, registerServiceProvider } from "@/services/api/serviceProvider";
 import { TOKEN_KEY, USER_KEY } from "@/constants";
-import { requestHandler } from "@/lib/utils";
-import { LoginProps, RegisterProps } from "@/types";
-import { router } from "expo-router";
+import { authApi } from "../services/api/auth";
+import { RegisterProps, VerifyUserProps } from "@/types";
 
-interface AuthStore {
-	user: any | null;
-	token: string | null;
-	isAuthenticated: boolean;
-	isLoading: boolean;
-
-	login: (data: LoginProps) => Promise<void>;
-	register: (data: RegisterProps) => Promise<void>;
-	logout: () => Promise<void>;
-	loadStoredAuth: () => Promise<void>;
+interface AuthResponse {
+	token: string;
+	user?: any;
+	serviceProvider?: any;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
+interface IAuthStore {
+	user: any | null;
+	serviceProvider: any | null;
+	isAuthenticated: boolean;
+	isServiceProvider: boolean;
+	isLoading: boolean;
+	error: string | null;
+	setUser: (user: any) => void;
+	loginUser: (phoneNumber: number, password: string) => Promise<void>;
+	loginServiceProvider: (phoneNumber: string, password: string) => Promise<void>;
+	registerUser: (data: RegisterProps) => Promise<void>;
+	registerServiceProvider: (data: any) => Promise<void>;
+	logout: () => void;
+	clearError: () => void;
+	verifyOTP: (data: VerifyUserProps) => Promise<void>;
+	resendOTP: () => Promise<void>;
+	forgotPassword: (phoneNumber: string) => Promise<void>;
+}
+
+export const useAuthStore = create<IAuthStore>((set) => ({
 	user: null,
-	token: null,
+	serviceProvider: null,
 	isAuthenticated: false,
+	isServiceProvider: false,
 	isLoading: false,
+	error: null,
 
-	login: async (data) => {
-		await requestHandler(
-			async () => await loginUser(data),
-			(loading) => set({ isLoading: loading }),
-			async (res) => {
-				const { token, user } = res.data;
-				await SecureStore.setItemAsync(TOKEN_KEY, token);
-				await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
-
-				set({ user, token, isAuthenticated: true });
-
-				router.replace("/home"); // or wherever you want to go
-			},
-			() => {
-				set({ user: null, token: null, isAuthenticated: false });
-				Alert.alert("Login failed", "Check your credentials.");
-			}
-		);
+	loginUser: async (phoneNumber, password) => {
+		try {
+			set({ isLoading: true, error: null });
+			const response = await authApi.login({ phoneNumber, password });
+			const { token, user } = response.data as AuthResponse;
+			await SecureStore.setItemAsync(TOKEN_KEY, token);
+			set({
+				user,
+				isAuthenticated: true,
+				isServiceProvider: false,
+				error: null,
+			});
+		} catch (error: any) {
+			console.error("AuthStore - login error:", {
+				error,
+				message: error?.message,
+				response: error?.response?.data,
+				status: error?.response?.status,
+			});
+			set({ error: error.response?.data?.message || "Login failed" });
+			throw error;
+		} finally {
+			set({ isLoading: false });
+		}
 	},
 
-	register: async (data) => {
-		await requestHandler(
-			async () => await registerUser(data),
-			(loading) => set({ isLoading: loading }),
-			() => {
-				Alert.alert("Success", "Account created successfully!");
-				router.navigate("/sign-in");
-			},
-			() => {
-				Alert.alert("Registration failed");
-			}
-		);
+	setUser: (user: any) => {
+		set({ user });
 	},
 
-	logout: async () => {
-		await requestHandler(
-			async () => await logOutUser(),
-			(loading) => set({ isLoading: loading }),
-			async () => {
-				await SecureStore.deleteItemAsync(TOKEN_KEY);
-				await SecureStore.deleteItemAsync(USER_KEY);
-				set({ user: null, token: null, isAuthenticated: false });
-				router.replace("/sign-in");
-			},
-			() => {
-				Alert.alert("Logout failed");
-			}
-		);
+	loginServiceProvider: async (phoneNumber: string, password: string) => {
+		try {
+			set({ isLoading: true, error: null });
+			const response = await loginServiceProvider({ phoneNumber, password });
+			const { token, serviceProvider } = response.data as AuthResponse;
+			await SecureStore.setItemAsync(TOKEN_KEY, token);
+			set({
+				serviceProvider,
+				isAuthenticated: true,
+				isServiceProvider: true,
+				isLoading: false,
+			});
+		} catch (error: any) {
+			set({
+				error: error.response?.data?.message || "Login failed",
+				isLoading: false,
+			});
+		}
 	},
 
-	loadStoredAuth: async () => {
-		const token = await SecureStore.getItemAsync(TOKEN_KEY);
-		const userRaw = await SecureStore.getItemAsync(USER_KEY);
+	registerUser: async (data) => {
+		try {
+			set({ isLoading: true, error: null });
+			const response = await authApi.register(data);
+			set({ user: response.data, error: null });
+		} catch (error: any) {
+			set({ error: error.response?.data?.message || "Registration failed" });
+			throw error;
+		} finally {
+			set({ isLoading: false });
+		}
+	},
 
-		if (token && userRaw) {
-			try {
-				const user = JSON.parse(userRaw);
-				set({ token, user, isAuthenticated: true });
-			} catch {
-				set({ token: null, user: null, isAuthenticated: false });
-			}
+	registerServiceProvider: async (data: any) => {
+		try {
+			set({ isLoading: true, error: null });
+			const response = await registerServiceProvider(data);
+			const { token, serviceProvider } = response.data as AuthResponse;
+			await SecureStore.setItemAsync(TOKEN_KEY, token);
+			set({
+				serviceProvider,
+				isAuthenticated: true,
+				isServiceProvider: true,
+				isLoading: false,
+			});
+		} catch (error: any) {
+			set({
+				error: error.response?.data?.message || "Registration failed",
+				isLoading: false,
+			});
+		}
+	},
+
+	logout: () => {
+		set({
+			user: null,
+			serviceProvider: null,
+			isAuthenticated: false,
+			isServiceProvider: false,
+			error: null,
+		});
+		SecureStore.deleteItemAsync(TOKEN_KEY);
+	},
+
+	clearError: () => {
+		set({ error: null });
+	},
+
+	verifyOTP: async (data) => {
+		try {
+			set({ isLoading: true, error: null });
+			const response = await authApi.verifyOTP(data);
+			set({ user: response.data, error: null });
+		} catch (error: any) {
+			set({ error: error.response?.data?.message || "OTP verification failed" });
+			throw error;
+		} finally {
+			set({ isLoading: false });
+		}
+	},
+
+	resendOTP: async () => {
+		try {
+			set({ isLoading: true, error: null });
+			await authApi.resendOTP();
+			set({ error: null });
+		} catch (error: any) {
+			set({ error: error.response?.data?.message || "Failed to resend OTP" });
+			throw error;
+		} finally {
+			set({ isLoading: false });
+		}
+	},
+
+	forgotPassword: async (phoneNumber) => {
+		try {
+			set({ isLoading: true, error: null });
+			await authApi.forgotPassword({ phoneNumber });
+			set({ error: null });
+		} catch (error: any) {
+			set({ error: error.response?.data?.message || "Failed to send reset instructions" });
+			throw error;
+		} finally {
+			set({ isLoading: false });
 		}
 	},
 }));

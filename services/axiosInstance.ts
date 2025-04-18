@@ -1,14 +1,9 @@
+import { BASE_URL } from "@/constants";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-const BASE_URL =
-	process.env.NODE_ENV === "development"
-		? process.env.EXPO_PUBLIC_BACKEND_PROD
-		: process.env.EXPO_PUBLIC_BACKEND_DEV;
-
-console.log("BASE_URL", BASE_URL);
 export const api = axios.create({
-	baseURL: BASE_URL,
+	baseURL: `${BASE_URL}/api/v1`,
 	withCredentials: true,
 });
 
@@ -19,6 +14,8 @@ api.interceptors.request.use(
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
 		}
+
+		console.log("hitting url", config.baseURL, config.url, config.method);
 		return config;
 	},
 	function (error) {

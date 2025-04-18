@@ -1,0 +1,261 @@
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, SafeAreaView, StatusBar } from "react-native";
+import Icon from "@expo/vector-icons/FontAwesome";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { useThemeStore } from "../../store/themeStore";
+import { lightTheme, darkTheme } from "../../constants/theme";
+
+const EmergencyContactsScreen = () => {
+	const router = useRouter();
+	const { isDarkMode } = useThemeStore();
+	const theme = isDarkMode ? darkTheme : lightTheme;
+
+	const emergencyServices = [
+		{
+			title: "Police",
+			description: "Emergency Response",
+			number: "100",
+			icon: "shield" as const,
+			color: theme.primary,
+		},
+		{
+			title: "Ambulance",
+			description: "Medical Emergency",
+			number: "108",
+			icon: "ambulance" as const,
+			color: theme.primary,
+		},
+		{
+			title: "Fire Brigade",
+			description: "Fire Emergency",
+			number: "101",
+			icon: "fire-extinguisher" as const,
+			color: theme.primary,
+		},
+	];
+
+	const closeContacts = [
+		{ name: "Anuska G.C.", relation: "Friend", color: theme.primary },
+		{ name: "Anuska G.C.", relation: "Friend", color: theme.primary },
+		{ name: "Anuska G.C.", relation: "Friend", color: theme.primary },
+		{ name: "Anuska G.C.", relation: "Friend", color: theme.primary },
+	];
+
+	return (
+		<SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+			<StatusBar
+				barStyle={isDarkMode ? "light-content" : "dark-content"}
+				backgroundColor={theme.background}
+			/>
+			<ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+				<LinearGradient
+					colors={[theme.background, theme.surface]}
+					style={styles.header}
+				>
+					<TouchableOpacity
+						style={styles.backButton}
+						onPress={() => router.back()}
+					>
+						<Ionicons
+							name="arrow-back"
+							size={24}
+							color={theme.text}
+						/>
+					</TouchableOpacity>
+					<Text style={[styles.headerText, { color: theme.text }]}>Emergency Contacts</Text>
+					<Text style={[styles.headerSubtext, { color: theme.textSecondary }]}>Quick access to emergency services</Text>
+				</LinearGradient>
+
+				<View style={styles.content}>
+					<Text style={[styles.sectionTitle, { color: theme.text }]}>Emergency Services</Text>
+					{emergencyServices.map((service, index) => (
+						<TouchableOpacity
+							key={index}
+							style={[styles.card, { backgroundColor: theme.surface }]}
+							onPress={() => Linking.openURL(`tel:${service.number}`)}
+						>
+							<View style={[styles.iconContainer, { backgroundColor: service.color }]}>
+								<Icon
+									name={service.icon}
+									size={24}
+									color="#fff"
+								/>
+							</View>
+							<View style={styles.serviceInfo}>
+								<Text style={[styles.cardTitle, { color: theme.text }]}>{service.title}</Text>
+								<Text style={[styles.cardSubtitle, { color: theme.textSecondary }]}>{service.description}</Text>
+								<Text style={[styles.cardNumber, { color: service.color }]}>{service.number}</Text>
+							</View>
+							<TouchableOpacity
+								style={[styles.callButton, { backgroundColor: service.color }]}
+								onPress={() => Linking.openURL(`tel:${service.number}`)}
+							>
+								<Icon
+									name="phone"
+									size={20}
+									color="#fff"
+								/>
+							</TouchableOpacity>
+						</TouchableOpacity>
+					))}
+
+					<View style={styles.closeContactsHeader}>
+						<Text style={[styles.sectionTitle, { color: theme.text }]}>Close Contacts</Text>
+						<TouchableOpacity onPress={() => router.push("/add-emergency-contact")}>
+							<Text style={[styles.addText, { color: theme.primary }]}>+Add</Text>
+						</TouchableOpacity>
+					</View>
+
+					{closeContacts.map((contact, index) => (
+						<TouchableOpacity
+							key={index}
+							style={[styles.card, { backgroundColor: theme.surface }]}
+						>
+							<View style={styles.contactInfo}>
+								<View style={[styles.iconContainer, { backgroundColor: contact.color }]}>
+									<Icon
+										name="user-o"
+										size={24}
+										color="#fff"
+									/>
+								</View>
+								<View>
+									<Text style={[styles.contactName, { color: theme.text }]}>{contact.name}</Text>
+									<Text style={[styles.contactRelation, { color: theme.textSecondary }]}>{contact.relation}</Text>
+								</View>
+							</View>
+							<TouchableOpacity style={[styles.callButton, { backgroundColor: contact.color }]}>
+								<Icon
+									name="phone"
+									size={20}
+									color="#fff"
+								/>
+							</TouchableOpacity>
+						</TouchableOpacity>
+					))}
+				</View>
+			</ScrollView>
+		</SafeAreaView>
+	);
+};
+
+const styles = StyleSheet.create({
+	safeArea: {
+		flex: 1,
+	},
+	container: {
+		flex: 1,
+	},
+	header: {
+		padding: 15,
+		paddingTop: 15,
+		paddingBottom: 15,
+		borderBottomLeftRadius: 20,
+		borderBottomRightRadius: 20,
+		marginBottom: 20,
+		elevation: 2,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.1,
+		shadowRadius: 2,
+	},
+	backButton: {
+		position: "absolute",
+		left: 15,
+		top: 15,
+	},
+	headerText: {
+		fontSize: 24,
+		fontWeight: "bold",
+		textAlign: "center",
+	},
+	headerSubtext: {
+		fontSize: 14,
+		textAlign: "center",
+		marginTop: 5,
+	},
+	content: {
+		padding: 20,
+	},
+	sectionTitle: {
+		fontSize: 18,
+		fontWeight: "600",
+		marginBottom: 15,
+	},
+	card: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 20,
+		borderRadius: 16,
+		marginBottom: 15,
+		elevation: 2,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.1,
+		shadowRadius: 2,
+	},
+	iconContainer: {
+		width: 60,
+		height: 60,
+		borderRadius: 30,
+		justifyContent: "center",
+		alignItems: "center",
+		marginRight: 15,
+		elevation: 3,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.2,
+		shadowRadius: 3,
+	},
+	serviceInfo: {
+		flex: 1,
+	},
+	cardTitle: {
+		fontSize: 16,
+		fontWeight: "600",
+	},
+	cardSubtitle: {
+		fontSize: 14,
+		marginTop: 4,
+	},
+	cardNumber: {
+		fontSize: 16,
+		fontWeight: "bold",
+		marginTop: 4,
+	},
+	closeContactsHeader: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		alignItems: "center",
+		marginTop: 20,
+		marginBottom: 15,
+	},
+	addText: {
+		fontWeight: "600",
+		fontSize: 14,
+	},
+	contactInfo: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	contactName: {
+		fontSize: 16,
+		fontWeight: "600",
+	},
+	contactRelation: {
+		fontSize: 14,
+		marginTop: 4,
+	},
+	callButton: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+});
+
+export default EmergencyContactsScreen;
