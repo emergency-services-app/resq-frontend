@@ -57,20 +57,20 @@ const SignInScreen = () => {
 		try {
 			if (isServiceProvider) {
 				console.log("Attempting service provider login...");
-				await loginServiceProvider(phoneNumber, password);
+				await loginServiceProvider(Number(phoneNumber), password);
 			} else {
 				console.log("Attempting user login...");
 				await loginUser(Number(phoneNumber), password);
 			}
+
 			console.log("Login successful, navigating to home...");
-			router.replace("/");
 		} catch (error: any) {
 			console.error("Login error details:", {
 				message: error?.message,
 				response: error?.response?.data,
 				status: error?.response?.status,
 			});
-			Alert.alert("Error", error?.message || "Login failed. Please check your credentials and try again.", [
+			Alert.alert("Error", error?.response?.message || "Login failed. Please check your credentials and try again.", [
 				{ text: "OK" },
 			]);
 		} finally {

@@ -17,7 +17,7 @@ import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { changePassword } from "@/services/api/auth";
+import { authApi } from "@/services/api/auth";
 
 const ChangePasswordScreen = () => {
 	const router = useRouter();
@@ -68,7 +68,7 @@ const ChangePasswordScreen = () => {
 
 		try {
 			setIsLoading(true);
-			await changePassword({
+			await authApi.changePassword({
 				currentPassword: formData.currentPassword,
 				newPassword: formData.newPassword,
 			});

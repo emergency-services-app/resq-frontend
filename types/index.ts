@@ -145,11 +145,6 @@ export interface IServiceProvider {
 	role: "service_provider";
 }
 
-export interface IServiceProviderLogin {
-	phoneNumber: string;
-	password: string;
-}
-
 export interface IServiceProviderRegister {
 	name: string;
 	email: string;

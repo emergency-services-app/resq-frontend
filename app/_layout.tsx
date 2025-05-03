@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useSocketStore } from "@/store/socketStore";
 import { useLocationStore } from "@/store/locationStore";
 import { api } from "@/services/axiosInstance";
-import { userEndpoints } from "@/services/endPoints";
+import { serviceProviderEndpoints, userEndpoints } from "@/services/endPoints";
 import { initializeApp } from "../utils/initializeApp";
 
 SplashScreen.preventAutoHideAsync();
@@ -39,10 +39,17 @@ export default function RootLayout() {
 			try {
 				const response = await api.get(userEndpoints.getProfile);
 				if (response.data.success) {
-					loadStoredAuth();
+					await loadStoredAuth();
 				}
 			} catch (error) {
-				useAuthStore.getState().logout();
+				try {
+					const response = await api.get(serviceProviderEndpoints.getProfile);
+					if (response.data.success) {
+						await loadStoredAuth();
+					}
+				} catch (error) {
+					useAuthStore.getState().logout();
+				}
 			}
 		};
 

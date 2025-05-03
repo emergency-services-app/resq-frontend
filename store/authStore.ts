@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
-import { loginServiceProvider, registerServiceProvider } from "@/services/api/serviceProvider";
+import { loginServiceProvider, logoutServiceProvider, registerServiceProvider } from "@/services/api/serviceProvider";
 import { TOKEN_KEY, USER_KEY } from "@/constants";
 import { authApi } from "../services/api/auth";
 import { RegisterProps, VerifyUserProps } from "@/types";
+import { router } from "expo-router";
 
 interface AuthResponse {
 	token: string;
@@ -14,13 +15,14 @@ interface AuthResponse {
 interface IAuthStore {
 	user: any | null;
 	serviceProvider: any | null;
+	userRole: "service_provider" | "user" | null;
 	isAuthenticated: boolean;
 	isServiceProvider: boolean;
 	isLoading: boolean;
 	error: string | null;
 	setUser: (user: any) => void;
 	loginUser: (phoneNumber: number, password: string) => Promise<void>;
-	loginServiceProvider: (phoneNumber: string, password: string) => Promise<void>;
+	loginServiceProvider: (phoneNumber: number, password: string) => Promise<void>;
 	registerUser: (data: RegisterProps) => Promise<void>;
 	registerServiceProvider: (data: any) => Promise<void>;
 	logout: () => void;
@@ -28,10 +30,12 @@ interface IAuthStore {
 	verifyOTP: (data: VerifyUserProps) => Promise<void>;
 	resendOTP: () => Promise<void>;
 	forgotPassword: (phoneNumber: string) => Promise<void>;
+	loadStoredAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<IAuthStore>((set) => ({
+export const useAuthStore = create<IAuthStore>((set, get) => ({
 	user: null,
+	userRole: null,
 	serviceProvider: null,
 	isAuthenticated: false,
 	isServiceProvider: false,
@@ -42,14 +46,27 @@ export const useAuthStore = create<IAuthStore>((set) => ({
 		try {
 			set({ isLoading: true, error: null });
 			const response = await authApi.login({ phoneNumber, password });
-			const { token, user } = response.data as AuthResponse;
-			await SecureStore.setItemAsync(TOKEN_KEY, token);
-			set({
-				user,
-				isAuthenticated: true,
-				isServiceProvider: false,
-				error: null,
-			});
+			if (response.data && response.data.token) {
+				const { token, user } = response.data as AuthResponse;
+				await SecureStore.setItemAsync(TOKEN_KEY, token);
+				set({
+					user,
+					isAuthenticated: true,
+					isServiceProvider: false,
+					error: null,
+					userRole: "user",
+				});
+				router.replace("/");
+			} else {
+				const { otpToken, userId } = response.data;
+				router.replace({
+					pathname: "/(auth)/otp-screen",
+					params: {
+						otpToken,
+						userId,
+					},
+				});
+			}
 		} catch (error: any) {
 			console.error("AuthStore - login error:", {
 				error,
@@ -68,18 +85,32 @@ export const useAuthStore = create<IAuthStore>((set) => ({
 		set({ user });
 	},
 
-	loginServiceProvider: async (phoneNumber: string, password: string) => {
+	loginServiceProvider: async (phoneNumber, password) => {
 		try {
 			set({ isLoading: true, error: null });
 			const response = await loginServiceProvider({ phoneNumber, password });
-			const { token, serviceProvider } = response.data as AuthResponse;
-			await SecureStore.setItemAsync(TOKEN_KEY, token);
-			set({
-				serviceProvider,
-				isAuthenticated: true,
-				isServiceProvider: true,
-				isLoading: false,
-			});
+			if (response.data && response.data.token) {
+				const { token, serviceProvider } = response.data as AuthResponse;
+
+				await SecureStore.setItemAsync(TOKEN_KEY, token);
+				set({
+					serviceProvider,
+					isAuthenticated: true,
+					isServiceProvider: true,
+					isLoading: false,
+					userRole: "service_provider",
+				});
+				router.replace("/(service-provider)/service-provider-dashboard");
+			} else {
+				const { otpToken, serviceProviderId: userId } = response.data;
+				router.replace({
+					pathname: "/(auth)/otp-screen",
+					params: {
+						otpToken,
+						userId,
+					},
+				});
+			}
 		} catch (error: any) {
 			set({
 				error: error.response?.data?.message || "Login failed",
@@ -121,15 +152,30 @@ export const useAuthStore = create<IAuthStore>((set) => ({
 		}
 	},
 
-	logout: () => {
-		set({
-			user: null,
-			serviceProvider: null,
-			isAuthenticated: false,
-			isServiceProvider: false,
-			error: null,
-		});
-		SecureStore.deleteItemAsync(TOKEN_KEY);
+	logout: async () => {
+		try {
+			set({ isLoading: true, error: null });
+			let response;
+			if (get().isServiceProvider) {
+				response = await logoutServiceProvider();
+			} else {
+				response = await authApi.logout();
+			}
+
+			if (response.status === 200) {
+				set({
+					user: null,
+					serviceProvider: null,
+					isAuthenticated: false,
+					isServiceProvider: false,
+				});
+				SecureStore.deleteItemAsync(TOKEN_KEY);
+				router.replace("/(auth)/sign-in");
+			}
+		} catch (error: any) {
+			set({ error: error.response?.data?.message || "Logout failed" });
+			throw error;
+		}
 	},
 
 	clearError: () => {
@@ -172,6 +218,17 @@ export const useAuthStore = create<IAuthStore>((set) => ({
 			throw error;
 		} finally {
 			set({ isLoading: false });
+		}
+	},
+
+	loadStoredAuth: async () => {
+		try {
+			const token = await SecureStore.getItemAsync(TOKEN_KEY);
+			if (token) {
+				set({ isAuthenticated: true });
+			}
+		} catch (error) {
+			console.error("Error loading stored auth:", error);
 		}
 	},
 }));

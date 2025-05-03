@@ -18,7 +18,6 @@ import { useAuthStore } from "@/store/authStore";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { capitalizeFirstLetter } from "@/lib/utils";
-import { getUserProfile } from "@/services/api/auth";
 
 type MenuItem = {
 	label: string;

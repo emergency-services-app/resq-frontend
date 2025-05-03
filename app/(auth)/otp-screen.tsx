@@ -1,14 +1,15 @@
 import { requestHandler } from "@/lib/utils";
 import { authApi } from "@/services/api/auth";
 import { useGlobalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from "react-native";
+import React, { useRef, useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from "react-native";
 
 const OTPScreen = () => {
 	const router = useRouter();
 	const [otp, setOtp] = useState("");
-	const [loading, isLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 	const [password, setPassword] = useState("");
+	const inputRefs = useRef<Array<TextInput | null>>([]);
 
 	const { otpToken, userId, isForgotPassword } = useGlobalSearchParams();
 	console.log(otpToken, userId);
@@ -29,7 +30,7 @@ const OTPScreen = () => {
 		if (isForgotPassword === "true") {
 			await requestHandler(
 				async () => await authApi.resetPassword({ otpToken: otp, userId, password }),
-				isLoading,
+				setIsLoading,
 				(res) => {
 					alert("OTP verified successfully!");
 					router.replace("/(tabs)/home");
@@ -41,7 +42,7 @@ const OTPScreen = () => {
 		} else {
 			await requestHandler(
 				async () => await authApi.verifyOTP({ otpToken: otp, userId }),
-				isLoading,
+				setIsLoading,
 				(res) => {
 					alert("OTP verified successfully!");
 					router.replace("/(tabs)/home");
@@ -72,12 +73,21 @@ const OTPScreen = () => {
 						<TextInput
 							key={index}
 							style={styles.otpInput}
+							ref={(input) => (inputRefs.current[index] = input)}
 							keyboardType="numeric"
 							maxLength={1}
 							onChangeText={(text) => {
 								const newOtp = otp.split("");
+								if (newOtp.length < 6) {
+									inputRefs?.current[index + 1]?.focus();
+								}
 								newOtp[index] = text;
 								setOtp(newOtp.join(""));
+							}}
+							onKeyPress={({ nativeEvent }) => {
+								if (nativeEvent.key === "Backspace") {
+									inputRefs?.current[index - 1]?.focus();
+								}
 							}}
 						/>
 					))}
@@ -102,7 +112,7 @@ const OTPScreen = () => {
 				style={styles.button}
 				onPress={handleOtpSubmit}
 			>
-				<Text style={styles.buttonText}>Submit</Text>
+				<Text style={styles.buttonText}>{isLoading ? <ActivityIndicator /> : "Submit"}</Text>
 			</TouchableOpacity>
 		</View>
 	);

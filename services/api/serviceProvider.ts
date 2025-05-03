@@ -1,14 +1,16 @@
 import { api } from "@/services/axiosInstance";
 import { serviceProviderEndpoints } from "../endPoints";
-import { IServiceProvider, IServiceProviderLogin, IServiceProviderRegister, IServiceProviderUpdate } from "@/types";
+import { IServiceProvider, IServiceProviderRegister, IServiceProviderUpdate, LoginProps } from "@/types";
 
 // Service Provider API Functions
-const registerServiceProvider = (data: IServiceProviderRegister) => {
-	return api.post(serviceProviderEndpoints.register, data);
+const registerServiceProvider = async (data: IServiceProviderRegister) => {
+	const response = await api.post(serviceProviderEndpoints.register, data);
+	return response.data;
 };
 
-const loginServiceProvider = (data: IServiceProviderLogin) => {
-	return api.post(serviceProviderEndpoints.login, data);
+const loginServiceProvider = async (data: LoginProps) => {
+	const response = await api.post(serviceProviderEndpoints.login, data);
+	return response.data;
 };
 
 const logoutServiceProvider = () => {

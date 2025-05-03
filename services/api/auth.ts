@@ -19,6 +19,10 @@ export const authApi = {
 		console.log("Auth API - login response:", response.data);
 		return response.data;
 	},
+	logout: async () => {
+		const response = await api.get(userEndpoints.logout);
+		return response.data;
+	},
 	register: async (data: RegisterProps) => {
 		const response = await api.post(userEndpoints.register, data);
 		return response.data;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as Location from "expo-location";
 
+// interface for location store
 interface LocationState {
 	permissionStatus: Location.PermissionStatus | null;
 	location: Location.LocationObject | null;
@@ -15,13 +16,16 @@ export const useLocationStore = create<LocationState>((set) => ({
 	location: null,
 	emergencyResponseId: null,
 
+	// actions
 	setEmergencyResponseId: (id: string) => set({ emergencyResponseId: id }),
 
+	// ask for location permission
 	askLocationPermission: async () => {
 		const { status } = await Location.requestForegroundPermissionsAsync();
 		set({ permissionStatus: status });
 	},
 
+	// get location and set it
 	getLocation: async () => {
 		const { status } = await Location.getForegroundPermissionsAsync();
 		if (status !== "granted") {
