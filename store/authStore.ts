@@ -15,7 +15,6 @@ interface AuthResponse {
 interface IAuthStore {
 	user: any | null;
 	serviceProvider: any | null;
-	userRole: "service_provider" | "user" | null;
 	isAuthenticated: boolean;
 	isServiceProvider: boolean;
 	isLoading: boolean;
@@ -35,7 +34,6 @@ interface IAuthStore {
 
 export const useAuthStore = create<IAuthStore>((set, get) => ({
 	user: null,
-	userRole: null,
 	serviceProvider: null,
 	isAuthenticated: false,
 	isServiceProvider: false,
@@ -54,7 +52,6 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 					isAuthenticated: true,
 					isServiceProvider: false,
 					error: null,
-					userRole: "user",
 				});
 				router.replace("/");
 			} else {
@@ -98,7 +95,6 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 					isAuthenticated: true,
 					isServiceProvider: true,
 					isLoading: false,
-					userRole: "service_provider",
 				});
 				router.replace("/(service-provider)/service-provider-dashboard");
 			} else {
@@ -162,7 +158,7 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 				response = await authApi.logout();
 			}
 
-			if (response.status === 200) {
+			if (response.statusCode === 200) {
 				set({
 					user: null,
 					serviceProvider: null,
