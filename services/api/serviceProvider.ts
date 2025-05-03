@@ -13,8 +13,9 @@ const loginServiceProvider = async (data: LoginProps) => {
 	return response.data;
 };
 
-const logoutServiceProvider = () => {
-	return api.get(serviceProviderEndpoints.logout);
+const logoutServiceProvider = async () => {
+	const response = await api.get(serviceProviderEndpoints.logout);
+	return response.data;
 };
 
 const updateServiceProvider = (data: IServiceProviderUpdate) => {
