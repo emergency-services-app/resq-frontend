@@ -4,58 +4,86 @@ import * as Location from "expo-location";
 import { BASE_URL, SocketEventEnums, TOKEN_KEY } from "@/constants";
 import socketIo, { Socket } from "socket.io-client";
 
+interface LocationData {
+	latitude: string;
+	longitude: string;
+}
+
+interface LocationUpdate {
+	userId: string;
+	location: LocationData;
+	timestamp: string;
+}
+
 interface ISocketStore {
 	socket: Socket | null;
 	locationWatcher: Location.LocationSubscription | null;
+	isConnected: boolean;
 	connectSocket: () => Promise<void>;
 	disconnectSocket: () => void;
-	startLocationUpdates: (emergencyResponseId: string) => Promise<void>;
+	startLocationUpdates: (emergencyResponseId: string, isProvider: boolean) => Promise<void>;
 	stopLocationUpdates: () => void;
-	sendLocation: (emergencyResponseId: string, location: { latitude: number; longitude: number }) => void;
+	sendLocation: (emergencyResponseId: string, location: Location.LocationObject, isProvider: boolean) => void;
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => void;
+	onLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
+	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 }
 
 export const useSocketStore = create<ISocketStore>((set, get) => ({
 	socket: null,
 	locationWatcher: null,
+	isConnected: false,
 
 	connectSocket: async () => {
-		const token = await SecureStore.getItemAsync(TOKEN_KEY);
-		if (!token) {
-			console.error("No token found");
-			return;
+		try {
+			const token = await SecureStore.getItemAsync(TOKEN_KEY);
+			if (!token) {
+				console.error("No token found");
+				return;
+			}
+
+			const socket = socketIo(BASE_URL, {
+				withCredentials: true,
+				auth: { token },
+				reconnection: true,
+				reconnectionAttempts: 5,
+				reconnectionDelay: 1000,
+			});
+
+			socket.on(SocketEventEnums.CONNECTION_EVENT, () => {
+				console.log("🚀 Socket connected");
+				set({ isConnected: true });
+			});
+
+			socket.on(SocketEventEnums.DISCONNECT_EVENT, () => {
+				console.log("🛑 Socket disconnected");
+				set({ isConnected: false });
+			});
+
+			socket.on(SocketEventEnums.SOCKET_ERROR, (error) => {
+				console.error("Socket error:", error);
+			});
+
+			socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, async ({ emergencyResponse }) => {
+				console.log("🆘 Emergency Response Created:", emergencyResponse);
+
+				const emergencyResponseId = emergencyResponse.id;
+				const userId = emergencyResponse.userId;
+				const providerId = emergencyResponse.serviceProviderId;
+
+				get().joinEmergencyRoom(emergencyResponseId, userId, providerId);
+				await get().startLocationUpdates(emergencyResponseId, false);
+			});
+
+			socket.on(SocketEventEnums.NEED_LOCATION, async ({ emergencyResponseId }) => {
+				console.log("📍 Need location event received for emergency:", emergencyResponseId);
+				await get().startLocationUpdates(emergencyResponseId, true);
+			});
+
+			set({ socket });
+		} catch (error) {
+			console.error("Error connecting to socket:", error);
 		}
-
-		const socket = socketIo(BASE_URL, {
-			withCredentials: true,
-			auth: { token },
-		});
-
-		socket.on(SocketEventEnums.CONNECTION_EVENT, () => {
-			console.log("🚀 Socket connected");
-		});
-
-		socket.on(SocketEventEnums.DISCONNECT_EVENT, () => {
-			console.log("🛑 Socket disconnected");
-		});
-
-		socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, async ({ emergencyResponse, optimalPath }) => {
-			console.log("🆘 Emergency Response Created:", emergencyResponse);
-
-			const emergencyResponseId = emergencyResponse.id;
-			const userId = emergencyResponse.serviceProviderId;
-			const providerId = emergencyResponse.serviceProviderId;
-
-			get().joinEmergencyRoom(emergencyResponseId, userId, providerId);
-			await get().startLocationUpdates(emergencyResponseId);
-		});
-
-		socket.on(SocketEventEnums.NEED_LOCATION, async ({ emergencyResponseId }) => {
-			console.log("📍 Need location event received for emergency:", emergencyResponseId);
-			await get().startLocationUpdates(emergencyResponseId);
-		});
-
-		set({ socket });
 	},
 
 	disconnectSocket: () => {
@@ -65,7 +93,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			console.log("🛑 Socket disconnected manually");
 		}
 		stopLocationUpdates();
-		set({ socket: null });
+		set({ socket: null, isConnected: false });
 	},
 
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => {
@@ -80,40 +108,47 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		}
 	},
 
-	sendLocation: (emergencyResponseId: string, location: { latitude: number; longitude: number }) => {
+	sendLocation: (emergencyResponseId: string, location: Location.LocationObject, isProvider: boolean) => {
 		const { socket } = get();
 		if (socket) {
-			socket.emit(SocketEventEnums.SEND_LOCATION, {
+			const event = isProvider ? SocketEventEnums.SEND_LOCATION : SocketEventEnums.SEND_USER_LOCATION;
+			socket.emit(event, {
 				emergencyResponseId,
-				providerLocation: location,
+				location: {
+					latitude: location.coords.latitude.toString(),
+					longitude: location.coords.longitude.toString(),
+				},
 			});
-			console.log("📡 Location sent:", location);
+			console.log(`📡 ${isProvider ? "Provider" : "User"} location sent:`, location.coords);
 		}
 	},
 
-	startLocationUpdates: async (emergencyResponseId: string) => {
+	startLocationUpdates: async (emergencyResponseId: string, isProvider: boolean) => {
 		const { sendLocation } = get();
 
-		const { status } = await Location.requestForegroundPermissionsAsync();
-		if (status !== "granted") {
-			console.error("📛 Permission to access location was denied");
-			return;
-		}
-
-		const watcher = await Location.watchPositionAsync(
-			{
-				accuracy: Location.Accuracy.High,
-				timeInterval: 5000,
-				distanceInterval: 10,
-			},
-			(location) => {
-				const { latitude, longitude } = location.coords;
-				sendLocation(emergencyResponseId, { latitude, longitude });
+		try {
+			const { status } = await Location.requestForegroundPermissionsAsync();
+			if (status !== "granted") {
+				console.error("📛 Permission to access location was denied");
+				return;
 			}
-		);
 
-		set({ locationWatcher: watcher });
-		console.log("📍 Started location updates");
+			const watcher = await Location.watchPositionAsync(
+				{
+					accuracy: Location.Accuracy.High,
+					timeInterval: 5000,
+					distanceInterval: 10,
+				},
+				(location) => {
+					sendLocation(emergencyResponseId, location, isProvider);
+				}
+			);
+
+			set({ locationWatcher: watcher });
+			console.log(`📍 Started ${isProvider ? "provider" : "user"} location updates`);
+		} catch (error) {
+			console.error("Error starting location updates:", error);
+		}
 	},
 
 	stopLocationUpdates: () => {
@@ -123,5 +158,19 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			console.log("🛑 Stopped location updates");
 		}
 		set({ locationWatcher: null });
+	},
+
+	onLocationUpdate: (callback: (data: LocationUpdate) => void) => {
+		const { socket } = get();
+		if (socket) {
+			socket.on(SocketEventEnums.UPDATE_LOCATION, callback);
+		}
+	},
+
+	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => {
+		const { socket } = get();
+		if (socket) {
+			socket.on(SocketEventEnums.UPDATE_USER_LOCATION, callback);
+		}
 	},
 }));

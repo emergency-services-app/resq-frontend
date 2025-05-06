@@ -3,116 +3,78 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from "react-na
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSocketStore } from "@/store/socketStore";
-import * as Location from "expo-location";
+import { useAuthStore } from "@/store/authStore";
 import Icon from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 
-interface ILocation {
-	latitude: number;
-	longitude: number;
+interface Location {
+	latitude: string;
+	longitude: string;
 }
 
-interface IOptimalPath {
-	latlngs: Array<[number, number]>;
-	duration: number;
-	distance: number;
+interface LocationUpdate {
+	userId: string;
+	location: Location;
+	timestamp: string;
 }
 
 const LiveTrackingScreen = () => {
 	const router = useRouter();
-	const { emergencyResponseId, userLat, userLng, providerLat, providerLng, optimalPath } = useLocalSearchParams();
+	const { emergencyResponseId } = useLocalSearchParams();
+	const { user } = useAuthStore();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const mapRef = React.useRef<MapView>(null);
 
-	const [currentLocation, setCurrentLocation] = useState<ILocation>({
-		latitude: parseFloat(userLat as string),
-		longitude: parseFloat(userLng as string),
-	});
-	const [providerLocation, setProviderLocation] = useState<ILocation>({
-		latitude: parseFloat(providerLat as string),
-		longitude: parseFloat(providerLng as string),
-	});
-	const [optimalPathData, setOptimalPathData] = useState<IOptimalPath | null>(null);
-	const { socket, joinEmergencyRoom, startLocationUpdates, stopLocationUpdates, sendLocation } = useSocketStore();
+	const {
+		socket,
+		isConnected,
+		joinEmergencyRoom,
+		startLocationUpdates,
+		stopLocationUpdates,
+		onLocationUpdate,
+		onUserLocationUpdate,
+	} = useSocketStore();
 
-	const userId = "user-id";
-	const providerId = "provider-id";
-
-	// Initialize optimal path from route params
-	useEffect(() => {
-		if (optimalPath) {
-			try {
-				const parsedPaths = JSON.parse(optimalPath as string);
-				if (parsedPaths && parsedPaths.length > 0) {
-					setOptimalPathData(parsedPaths[0]);
-				}
-			} catch (error) {
-				console.error("Error parsing optimal path:", error);
-			}
-		}
-	}, [optimalPath]);
-
-	const sendLocationUpdate = async () => {
-		try {
-			const { status } = await Location.requestForegroundPermissionsAsync();
-			if (status !== "granted") {
-				console.error("Location permission not granted");
-				return;
-			}
-
-			const location = await Location.getCurrentPositionAsync({});
-			const newLocation = {
-				latitude: location.coords.latitude,
-				longitude: location.coords.longitude,
-			};
-
-			setCurrentLocation(newLocation);
-			sendLocation(emergencyResponseId as string, newLocation);
-		} catch (error) {
-			console.error("Error getting/sending location:", error);
-		}
-	};
+	const [providerLocation, setProviderLocation] = useState<Location | null>(null);
+	const [userLocation, setUserLocation] = useState<Location | null>(null);
+	const [optimalPath, setOptimalPath] = useState<Location[]>([]);
 
 	useEffect(() => {
-		if (!socket || !emergencyResponseId) return;
+		if (!socket || !emergencyResponseId || !user) return;
 
 		// Join the emergency room
-		joinEmergencyRoom(emergencyResponseId as string, userId, providerId);
+		joinEmergencyRoom(emergencyResponseId as string, user.id, user.serviceProviderId || "");
 
-		startLocationUpdates(emergencyResponseId as string);
+		// Start location updates based on user role
+		startLocationUpdates(emergencyResponseId as string, !!user.serviceProviderId);
 
-		const locationInterval = setInterval(sendLocationUpdate, 1000);
-
-		socket.on("location_update", (data) => {
-			console.log("📍Provider Location Update:", data);
-			const newProviderLocation = {
-				latitude: data.latitude,
-				longitude: data.longitude,
-			};
-			setProviderLocation(newProviderLocation);
+		// Listen for provider location updates
+		onLocationUpdate((data: LocationUpdate) => {
+			console.log("📍 Provider Location Update:", data);
+			setProviderLocation(data.location);
 		});
 
-		socket.on("optimal_path_update", (data) => {
-			console.log("🛣️ Optimal Path Update:", data);
-			if (data.data && data.data.length > 0) {
-				setOptimalPathData({
-					latlngs: data.data[0].latlngs,
-					duration: data.data[0].duration,
-					distance: data.data[0].distance,
-				});
-			}
+		// Listen for user location updates
+		onUserLocationUpdate((data: LocationUpdate) => {
+			console.log("📍 User Location Update:", data);
+			setUserLocation(data.location);
 		});
 
 		return () => {
-			clearInterval(locationInterval);
-			socket.off("location_update");
-			socket.off("optimal_path_update");
 			stopLocationUpdates();
 		};
-	}, [socket, emergencyResponseId]);
+	}, [socket, emergencyResponseId, user]);
+
+	if (!isConnected) {
+		return (
+			<View style={styles.container}>
+				<Text>Connecting to server...</Text>
+			</View>
+		);
+	}
 
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -134,17 +96,17 @@ const LiveTrackingScreen = () => {
 				ref={mapRef}
 				style={styles.map}
 				initialRegion={{
-					latitude: (currentLocation.latitude + providerLocation.latitude) / 2,
-					longitude: (currentLocation.longitude + providerLocation.longitude) / 2,
-					latitudeDelta: Math.abs(currentLocation.latitude - providerLocation.latitude) * 2,
-					longitudeDelta: Math.abs(currentLocation.longitude - providerLocation.longitude) * 2,
+					latitude: userLocation ? parseFloat(userLocation.latitude) : 0,
+					longitude: userLocation ? parseFloat(userLocation.longitude) : 0,
+					latitudeDelta: 0.0922,
+					longitudeDelta: 0.0421,
 				}}
 				onMapReady={() => {
-					if (optimalPathData && optimalPathData.latlngs.length > 0) {
+					if (optimalPath.length > 0) {
 						// Convert the optimal path coordinates to the format expected by fitToCoordinates
-						const coordinates = optimalPathData.latlngs.map(([longitude, latitude]) => ({
-							latitude,
-							longitude,
+						const coordinates = optimalPath.map((loc) => ({
+							latitude: parseFloat(loc.latitude),
+							longitude: parseFloat(loc.longitude),
 						}));
 
 						// Fit the map to show the entire route with padding
@@ -154,68 +116,54 @@ const LiveTrackingScreen = () => {
 						});
 					} else {
 						// If no optimal path yet, just show both markers
-						mapRef.current?.fitToCoordinates([currentLocation, providerLocation], {
-							edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-							animated: true,
-						});
+						mapRef.current?.fitToCoordinates(
+							[
+								{
+									latitude: parseFloat(userLocation?.latitude || "0"),
+									longitude: parseFloat(userLocation?.longitude || "0"),
+								},
+								{
+									latitude: parseFloat(providerLocation?.latitude || "0"),
+									longitude: parseFloat(providerLocation?.longitude || "0"),
+								},
+							],
+							{
+								edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+								animated: true,
+							}
+						);
 					}
 				}}
 			>
-				<Marker
-					coordinate={currentLocation}
-					title="Emergency Location"
-					description="Emergency location"
-				>
-					<View style={[styles.markerContainer, { backgroundColor: theme.error }]}>
-						<Ionicons
-							name="car"
-							size={24}
-							color="#fff"
-						/>
-					</View>
-				</Marker>
-
-				<Marker
-					coordinate={providerLocation}
-					title="Service Provider"
-					description="Service provider location"
-				>
-					<View style={[styles.markerContainer, { backgroundColor: theme.primary }]}>
-						<Ionicons
-							name="alert-circle"
-							size={24}
-							color="#fff"
-						/>
-					</View>
-				</Marker>
-
-				{optimalPathData && (
-					<>
-						<Polyline
-							coordinates={optimalPathData.latlngs.map(([longitude, latitude]) => ({
-								latitude,
-								longitude,
-							}))}
-							strokeWidth={8}
-							strokeColor={"blue"}
-						/>
-						{optimalPathData.latlngs.length > 0 && (
-							<Marker
-								coordinate={{
-									latitude: optimalPathData.latlngs[0][1],
-									longitude: optimalPathData.latlngs[0][0],
-								}}
-							>
-								<View style={[styles.markerContainer, { backgroundColor: theme.success }]}>
-									<Ionicons
-										name="car"
-										size={20}
-										color="#fff"
-									/>
-								</View>
-							</Marker>
-						)}
-					</>
+				{userLocation && (
+					<Marker
+						coordinate={{
+							latitude: parseFloat(userLocation.latitude),
+							longitude: parseFloat(userLocation.longitude),
+						}}
+						title="Your Location"
+						pinColor="blue"
+					/>
+				)}
+				{providerLocation && (
+					<Marker
+						coordinate={{
+							latitude: parseFloat(providerLocation.latitude),
+							longitude: parseFloat(providerLocation.longitude),
+						}}
+						title="Service Provider"
+						pinColor="red"
+					/>
+				)}
+				{optimalPath.length > 0 && (
+					<Polyline
+						coordinates={optimalPath.map((loc) => ({
+							latitude: parseFloat(loc.latitude),
+							longitude: parseFloat(loc.longitude),
+						}))}
+						strokeWidth={3}
+						strokeColor="#2196F3"
+					/>
 				)}
 			</MapView>
 
@@ -231,7 +179,7 @@ const LiveTrackingScreen = () => {
 					</View>
 				</View>
 
-				{optimalPathData && (
+				{optimalPath.length > 0 && (
 					<View style={styles.routeInfo}>
 						<View style={styles.infoRow}>
 							<Icon
@@ -240,7 +188,7 @@ const LiveTrackingScreen = () => {
 								color={theme.primary}
 							/>
 							<Text style={[styles.infoText, { color: theme.text }]}>
-								{(optimalPathData.distance / 1000).toFixed(2)} km
+								{(optimalPath.length * 1000).toFixed(2)} meters
 							</Text>
 						</View>
 						<View style={styles.infoRow}>
@@ -250,7 +198,7 @@ const LiveTrackingScreen = () => {
 								color={theme.primary}
 							/>
 							<Text style={[styles.infoText, { color: theme.text }]}>
-								{Math.ceil(optimalPathData.duration / 60)} minutes
+								{((optimalPath.length * 1000) / 1000).toFixed(2)} seconds
 							</Text>
 						</View>
 					</View>

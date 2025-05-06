@@ -15,9 +15,14 @@ export enum SocketEventEnums {
 	JOIN_EMERGENCY_ROOM = "joinEmergencyRoom",
 	LEAVE_EMERGENCY_ROOM = "leaveEmergencyRoom",
 	EMERGENCY_RESPONSE_CREATED = "emergencyResponseCreated",
+	NOTIFICATION_CREATED = "notificationCreated",
 
 	UPDATE_LOCATION = "updateLocation",
+	UPDATE_USER_LOCATION = "updateUserLocation",
 	SEND_LOCATION = "sendLocation",
+	SEND_USER_LOCATION = "sendUserLocation",
+
+	PROVIDER_FOUND = "providerFound",
 	NEED_LOCATION = "needLocation",
 
 	SOCKET_ERROR = "socketError",

@@ -48,6 +48,7 @@ export const serviceProviderEndpoints = {
 	forgotPassword: "/service-provider/forgot-password",
 	getById: (id: string) => `/service-provider/${id}`,
 	update: "/service-provider/update",
+	updateStatus: "/service-provider/status",
 };
 
 export const mapsEndpoints = {
