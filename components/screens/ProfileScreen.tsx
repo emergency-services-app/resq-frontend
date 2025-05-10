@@ -38,6 +38,7 @@ const ProfileScreen = () => {
 	const router = useRouter();
 	const { logout, isLoading, user } = useAuthStore();
 	const { isDarkMode, toggleDarkMode } = useThemeStore();
+	const [isDoNotDistrub, setIsDoNotDistrub] = React.useState(false);
 	const theme = isDarkMode ? darkTheme : lightTheme;
 
 	if (isLoading) return <ActivityIndicator />;
@@ -78,7 +79,11 @@ const ProfileScreen = () => {
 					icon: "notifications-outline",
 					label: "Notification",
 					isExpandable: true,
-					onPress: () => Alert.alert("Notification Settings"),
+					isToggle: true,
+					onPress: () => {
+						setIsDoNotDistrub(!isDoNotDistrub);
+					},
+					value: isDoNotDistrub,
 				},
 			],
 		},
@@ -92,7 +97,6 @@ const ProfileScreen = () => {
 					onPress: () => router.push("/terms-and-conditions"),
 					isExpandable: true,
 				},
-				{ icon: "help-circle-outline", label: "Help Center", onPress: () => Alert.alert("Help Center") },
 				{ icon: "chatbubble-outline", label: "Feedback", onPress: () => Alert.alert("Feedback") },
 			],
 		},
