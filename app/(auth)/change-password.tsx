@@ -69,7 +69,7 @@ const ChangePasswordScreen = () => {
 		try {
 			setIsLoading(true);
 			await authApi.changePassword({
-				currentPassword: formData.currentPassword,
+				oldPassword: formData.currentPassword,
 				newPassword: formData.newPassword,
 			});
 			Alert.alert("Success", "Password changed successfully", [{ text: "OK", onPress: () => router.back() }]);

@@ -45,4 +45,8 @@ export const authApi = {
 		const response = await api.put(userEndpoints.updateUser, data);
 		return response.data;
 	},
+	changePassword: async (data: { oldPassword: string; newPassword: string }) => {
+		const response = await api.post(userEndpoints.changePassword, data);
+		return response.data;
+	},
 };
