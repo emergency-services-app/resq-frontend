@@ -12,6 +12,7 @@ import {
 	ActivityIndicator,
 	Alert,
 } from "react-native";
+import Icon from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
@@ -49,8 +50,16 @@ const ChangePasswordScreen = () => {
 
 		if (!formData.newPassword) {
 			newErrors.newPassword = "New password is required";
-		} else if (formData.newPassword.length < 6) {
-			newErrors.newPassword = "Password must be at least 6 characters";
+		} else if (formData.newPassword.length < 8) {
+			newErrors.newPassword = "Password must be at least 8 characters";
+		} else if (!/[A-Z]/.test(formData.newPassword)) {
+			newErrors.newPassword = "Password must contain at least one uppercase letter";
+		} else if (!/[a-z]/.test(formData.newPassword)) {
+			newErrors.newPassword = "Password must contain at least one lowercase letter";
+		} else if (!/[0-9]/.test(formData.newPassword)) {
+			newErrors.newPassword = "Password must contain at least one number";
+		} else if (!/[^A-Za-z0-9]/.test(formData.newPassword)) {
+			newErrors.newPassword = "Password must contain at least one special character";
 		}
 
 		if (!formData.confirmPassword) {
@@ -140,26 +149,41 @@ const ChangePasswordScreen = () => {
 							) : null}
 						</View>
 
-						<View style={styles.inputGroup}>
-							<Text style={[styles.label, { color: theme.textSecondary }]}>New Password</Text>
-							<TextInput
-								style={[
-									styles.input,
-									{
-										backgroundColor: theme.surface,
-										color: theme.text,
-										borderColor: errors.newPassword ? theme.error : theme.border,
-									},
-								]}
-								value={formData.newPassword}
-								onChangeText={(text) => setFormData({ ...formData, newPassword: text })}
-								placeholder="Enter your new password"
-								placeholderTextColor={theme.textSecondary}
-								secureTextEntry
-							/>
-							{errors.newPassword ? (
+						<View style={styles.inputContainer}>
+							<Text style={[styles.label, { color: theme.text }]}>New Password</Text>
+							<View style={[styles.inputWrapper, { backgroundColor: theme.surface }]}>
+								<Icon
+									name="lock"
+									size={20}
+									color={theme.textSecondary}
+									style={styles.inputIcon}
+								/>
+								<TextInput
+									style={[styles.input, { color: theme.text }]}
+									placeholder="Enter new password"
+									placeholderTextColor={theme.textSecondary}
+									value={formData.newPassword}
+									onChangeText={(text) => setFormData((prev) => ({ ...prev, newPassword: text }))}
+									secureTextEntry
+								/>
+							</View>
+							{errors.newPassword && (
 								<Text style={[styles.errorText, { color: theme.error }]}>{errors.newPassword}</Text>
-							) : null}
+							)}
+							<View style={styles.passwordRequirements}>
+								<Text style={[styles.requirementText, { color: theme.textSecondary }]}>Password must contain:</Text>
+								<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>• At least 8 characters</Text>
+								<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+									• At least one uppercase letter
+								</Text>
+								<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+									• At least one lowercase letter
+								</Text>
+								<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>• At least one number</Text>
+								<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+									• At least one special character
+								</Text>
+							</View>
 						</View>
 
 						<View style={styles.inputGroup}>
@@ -275,6 +299,33 @@ const styles = StyleSheet.create({
 	buttonText: {
 		fontSize: 16,
 		fontWeight: "600",
+	},
+	inputContainer: {
+		gap: 8,
+	},
+	inputWrapper: {
+		padding: 15,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: "white",
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	inputIcon: {
+		marginRight: 15,
+	},
+	passwordRequirements: {
+		marginTop: 8,
+		paddingHorizontal: 4,
+	},
+	requirementText: {
+		fontSize: 12,
+		marginBottom: 4,
+	},
+	requirementItem: {
+		fontSize: 12,
+		marginLeft: 8,
+		marginBottom: 2,
 	},
 });
 

@@ -19,6 +19,7 @@ interface ISocketStore {
 	socket: Socket | null;
 	locationWatcher: Location.LocationSubscription | null;
 	isConnected: boolean;
+	lastError: string | null;
 	connectSocket: () => Promise<void>;
 	disconnectSocket: () => void;
 	startLocationUpdates: (emergencyResponseId: string, isProvider: boolean) => Promise<void>;
@@ -27,18 +28,21 @@ interface ISocketStore {
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => void;
 	onLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
+	clearError: () => void;
 }
 
 export const useSocketStore = create<ISocketStore>((set, get) => ({
 	socket: null,
 	locationWatcher: null,
 	isConnected: false,
+	lastError: null,
 
 	connectSocket: async () => {
 		try {
 			const token = await SecureStore.getItemAsync(TOKEN_KEY);
 			if (!token) {
 				console.error("No token found");
+				set({ lastError: "Authentication token not found" });
 				return;
 			}
 
@@ -52,7 +56,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 
 			socket.on(SocketEventEnums.CONNECTION_EVENT, () => {
 				console.log("🚀 Socket connected");
-				set({ isConnected: true });
+				set({ isConnected: true, lastError: null });
 			});
 
 			socket.on(SocketEventEnums.DISCONNECT_EVENT, () => {
@@ -62,6 +66,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 
 			socket.on(SocketEventEnums.SOCKET_ERROR, (error) => {
 				console.error("Socket error:", error);
+				set({ lastError: "Connection error. Please check your internet connection." });
 			});
 
 			socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, async ({ emergencyResponse }) => {
@@ -83,6 +88,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			set({ socket });
 		} catch (error) {
 			console.error("Error connecting to socket:", error);
+			set({ lastError: "Failed to connect to server" });
 		}
 	},
 
@@ -93,7 +99,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			console.log("🛑 Socket disconnected manually");
 		}
 		stopLocationUpdates();
-		set({ socket: null, isConnected: false });
+		set({ socket: null, isConnected: false, lastError: null });
 	},
 
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => {
@@ -130,6 +136,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			const { status } = await Location.requestForegroundPermissionsAsync();
 			if (status !== "granted") {
 				console.error("📛 Permission to access location was denied");
+				set({ lastError: "Location permission denied" });
 				return;
 			}
 
@@ -144,10 +151,11 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 				}
 			);
 
-			set({ locationWatcher: watcher });
+			set({ locationWatcher: watcher, lastError: null });
 			console.log(`📍 Started ${isProvider ? "provider" : "user"} location updates`);
 		} catch (error) {
 			console.error("Error starting location updates:", error);
+			set({ lastError: "Failed to start location updates" });
 		}
 	},
 
@@ -172,5 +180,9 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		if (socket) {
 			socket.on(SocketEventEnums.UPDATE_USER_LOCATION, callback);
 		}
+	},
+
+	clearError: () => {
+		set({ lastError: null });
 	},
 }));
