@@ -69,8 +69,16 @@ const SignUpScreen = () => {
 
 		if (!password.trim()) {
 			newErrors.password = "Password is required";
-		} else if (password.length < 6) {
-			newErrors.password = "Password must be at least 6 characters";
+		} else if (password.length < 8) {
+			newErrors.password = "Password must be at least 8 characters";
+		} else if (!/[A-Z]/.test(password)) {
+			newErrors.password = "Password must contain at least one uppercase letter";
+		} else if (!/[a-z]/.test(password)) {
+			newErrors.password = "Password must contain at least one lowercase letter";
+		} else if (!/[0-9]/.test(password)) {
+			newErrors.password = "Password must contain at least one number";
+		} else if (!/[^A-Za-z0-9]/.test(password)) {
+			newErrors.password = "Password must contain at least one special character";
 		}
 
 		if (!confirmPassword.trim()) {
@@ -284,6 +292,20 @@ const SignUpScreen = () => {
 							</TouchableOpacity>
 						</View>
 						{errors.password && <Text style={[styles.errorText, { color: theme.error }]}>{errors.password}</Text>}
+						<View style={styles.passwordRequirements}>
+							<Text style={[styles.requirementText, { color: theme.textSecondary }]}>Password must contain:</Text>
+							<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>• At least 8 characters</Text>
+							<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+								• At least one uppercase letter
+							</Text>
+							<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+								• At least one lowercase letter
+							</Text>
+							<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>• At least one number</Text>
+							<Text style={[styles.requirementItem, { color: theme.textSecondary }]}>
+								• At least one special character
+							</Text>
+						</View>
 					</View>
 
 					<View style={styles.inputContainer}>
@@ -454,6 +476,19 @@ const styles = StyleSheet.create({
 	},
 	footerText: {
 		fontSize: 14,
+	},
+	passwordRequirements: {
+		marginTop: 8,
+		paddingHorizontal: 4,
+	},
+	requirementText: {
+		fontSize: 12,
+		marginBottom: 4,
+	},
+	requirementItem: {
+		fontSize: 12,
+		marginLeft: 8,
+		marginBottom: 2,
 	},
 });
 

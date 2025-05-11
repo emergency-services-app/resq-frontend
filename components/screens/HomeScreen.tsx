@@ -1,6 +1,16 @@
 import React from "react";
 import { AVAILABLE_SERVICES } from "@/constants";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, SafeAreaView, StatusBar, Image } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	ScrollView,
+	SafeAreaView,
+	StatusBar,
+	Image,
+	ActivityIndicator,
+} from "react-native";
 import Icon from "@expo/vector-icons/FontAwesome";
 import { Ionicons } from "@expo/vector-icons";
 import { capitalizeFirstLetter, getServiceType, requestHandler } from "@/lib/utils";
@@ -50,8 +60,6 @@ const EmergencyServicesScreen = () => {
 
 	const handleSelectService = async (service: string) => {
 		try {
-			console.log("Location is", location);
-
 			if (!location) {
 				await askLocationPermission();
 				await getLocation();
@@ -136,6 +144,7 @@ const EmergencyServicesScreen = () => {
 								style={[styles.serviceButton, { backgroundColor: theme.surface, borderLeftColor: service.color }]}
 								onPress={() => handleSelectService(service.name)}
 								activeOpacity={0.7}
+								disabled={isCreating}
 							>
 								<View style={[styles.iconContainer, { backgroundColor: `${service.color}20` }]}>
 									<Icon
@@ -181,6 +190,18 @@ const EmergencyServicesScreen = () => {
 					))}
 				</View>
 			</ScrollView>
+
+			{isCreating && (
+				<View style={[styles.loadingOverlay, { backgroundColor: `${theme.background}99` }]}>
+					<View style={[styles.loadingContent, { backgroundColor: theme.surface }]}>
+						<ActivityIndicator
+							size="large"
+							color={theme.primary}
+						/>
+						<Text style={[styles.loadingText, { color: theme.text }]}>Requesting service...</Text>
+					</View>
+				</View>
+			)}
 		</SafeAreaView>
 	);
 };
@@ -337,6 +358,30 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "500",
 		marginRight: 8,
+	},
+	loadingOverlay: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	loadingContent: {
+		padding: 20,
+		borderRadius: 12,
+		alignItems: "center",
+		elevation: 5,
+		shadowColor: "#000",
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+	},
+	loadingText: {
+		marginTop: 12,
+		fontSize: 16,
+		fontWeight: "500",
 	},
 });
 
