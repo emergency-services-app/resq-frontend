@@ -23,6 +23,11 @@ export enum SocketEventEnums {
 	SEND_USER_LOCATION = "sendUserLocation",
 
 	PROVIDER_FOUND = "providerFound",
+
+	PROVIDER_STATUS_UPDATED = "providerStatusUpdated",
+	REQUEST_EMERGENCY_SERVICE = "requestEmergencyService",
+	UPDATE_PROVIDER_STATUS = "updateProviderStatus",
+
 	NEED_LOCATION = "needLocation",
 
 	SOCKET_ERROR = "socketError",

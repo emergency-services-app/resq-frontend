@@ -15,11 +15,20 @@ interface LocationUpdate {
 	timestamp: string;
 }
 
+interface ServiceProvider {
+	id: string;
+	name: string;
+	location: LocationData;
+	serviceType: string;
+	status: "available" | "busy" | "offline";
+}
+
 interface ISocketStore {
 	socket: Socket | null;
 	locationWatcher: Location.LocationSubscription | null;
 	isConnected: boolean;
 	lastError: string | null;
+	availableProviders: ServiceProvider[];
 	connectSocket: () => Promise<void>;
 	disconnectSocket: () => void;
 	startLocationUpdates: (emergencyResponseId: string, isProvider: boolean) => Promise<void>;
@@ -28,6 +37,8 @@ interface ISocketStore {
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => void;
 	onLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
+	requestEmergencyService: (serviceType: string, userLocation: LocationData) => Promise<void>;
+	updateProviderStatus: (status: "available" | "busy" | "offline") => void;
 	clearError: () => void;
 }
 
@@ -36,6 +47,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 	locationWatcher: null,
 	isConnected: false,
 	lastError: null,
+	availableProviders: [],
 
 	connectSocket: async () => {
 		try {
@@ -83,6 +95,19 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			socket.on(SocketEventEnums.NEED_LOCATION, async ({ emergencyResponseId }) => {
 				console.log("📍 Need location event received for emergency:", emergencyResponseId);
 				await get().startLocationUpdates(emergencyResponseId, true);
+			});
+
+			socket.on(SocketEventEnums.PROVIDER_FOUND, ({ providers }) => {
+				console.log("👥 Available providers:", providers);
+				set({ availableProviders: providers });
+			});
+
+			socket.on(SocketEventEnums.PROVIDER_STATUS_UPDATED, ({ providerId, status }) => {
+				set((state) => ({
+					availableProviders: state.availableProviders.map((provider) =>
+						provider.id === providerId ? { ...provider, status } : provider
+					),
+				}));
 			});
 
 			set({ socket });
@@ -179,6 +204,25 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		const { socket } = get();
 		if (socket) {
 			socket.on(SocketEventEnums.UPDATE_USER_LOCATION, callback);
+		}
+	},
+
+	requestEmergencyService: async (serviceType: string, userLocation: LocationData) => {
+		const { socket } = get();
+		if (socket) {
+			socket.emit(SocketEventEnums.REQUEST_EMERGENCY_SERVICE, {
+				serviceType,
+				userLocation,
+			});
+			console.log("🚨 Emergency service requested:", { serviceType, userLocation });
+		}
+	},
+
+	updateProviderStatus: (status: "available" | "busy" | "offline") => {
+		const { socket } = get();
+		if (socket) {
+			socket.emit(SocketEventEnums.UPDATE_PROVIDER_STATUS, { status });
+			console.log("📊 Provider status updated:", status);
 		}
 	},
 

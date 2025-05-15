@@ -14,7 +14,13 @@ const getEmergencyResponseById = (id: string) => {
 	return api.get(emergencyResponseEndpoints.getResponseById(id));
 };
 
-const updateEmergencyResponse = (id: string, data: ICreateEmergencyResponse) => {
+const updateEmergencyResponse = (
+	id: string,
+	data: {
+		statusUpdate: string;
+		updateDescription: string;
+	}
+) => {
 	return api.put(emergencyResponseEndpoints.updateResponse(id), data);
 };
 

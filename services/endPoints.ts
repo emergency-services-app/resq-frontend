@@ -8,6 +8,7 @@ export const userEndpoints = {
 	getProfile: "/user/profile",
 	forgotPassword: "/user/forgot-password",
 	updateUser: "/user/update",
+	updatePushToken: "/api/v1/users/update-push-token",
 };
 
 export const emergencyRequestEndpoints = {
@@ -49,6 +50,7 @@ export const serviceProviderEndpoints = {
 	getById: (id: string) => `/service-provider/${id}`,
 	update: "/service-provider/update",
 	updateStatus: "/service-provider/status",
+	nearbyProviders: "/service-provider/nearby",
 };
 
 export const mapsEndpoints = {

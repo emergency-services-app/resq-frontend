@@ -22,8 +22,9 @@ import { useLocationStore } from "@/store/locationStore";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
+import RecentRequests from "../RecentRequests";
 
-const EmergencyServicesScreen = () => {
+const HomeScreen = () => {
 	const router = useRouter();
 	const { user } = useAuthStore((state) => state);
 	const { isDarkMode } = useThemeStore();
@@ -42,12 +43,6 @@ const EmergencyServicesScreen = () => {
 		{ name: "Fire brigade", icon: "fire-extinguisher", color: theme.primary },
 		{ name: "Police", icon: "shield", color: theme.primary },
 		{ name: "Rescue", icon: "car", color: theme.primary },
-	];
-
-	const pastServices = [
-		{ name: "Ambulance", time: "2023-10-27 10:30 AM", status: "Completed" },
-		{ name: "Police", time: "2023-10-25 03:15 PM", status: "Completed" },
-		{ name: "Fire Brigade", time: "2023-10-20 08:00 AM", status: "Completed" },
 	];
 
 	useEffect(() => {
@@ -75,7 +70,6 @@ const EmergencyServicesScreen = () => {
 					await createEmergencyRequest({
 						emergencyType: getServiceType(service),
 						emergencyDescription: `Request created from ${user.name} at location ${location.coords.latitude}, ${location.coords.longitude}`,
-
 						userLocation: {
 							latitude: location.coords.latitude,
 							longitude: location.coords.longitude,
@@ -159,36 +153,7 @@ const EmergencyServicesScreen = () => {
 					</View>
 				</View>
 
-				<View style={styles.pastContainer}>
-					<View style={styles.pastHeaderRow}>
-						<Text style={[styles.pastTitle, { color: theme.text }]}>Recent Activities</Text>
-						<TouchableOpacity>
-							<Text style={[styles.viewAllText, { color: theme.primary }]}>View All</Text>
-						</TouchableOpacity>
-					</View>
-
-					{pastServices.map((item, index) => (
-						<View
-							key={index}
-							style={[styles.pastItemCard, { backgroundColor: theme.surface }]}
-						>
-							<View style={styles.pastItemLeft}>
-								<Text style={[styles.pastItemName, { color: theme.text }]}>{item.name}</Text>
-								<Text style={[styles.pastTime, { color: theme.textSecondary }]}>{item.time}</Text>
-							</View>
-							<View style={styles.pastItemRight}>
-								<Text style={[styles.statusBadge, { backgroundColor: theme.success, color: theme.background }]}>
-									{item.status}
-								</Text>
-								<Ionicons
-									name="chevron-forward"
-									size={16}
-									color={theme.textSecondary}
-								/>
-							</View>
-						</View>
-					))}
-				</View>
+				<RecentRequests />
 			</ScrollView>
 
 			{isCreating && (
@@ -207,10 +172,16 @@ const EmergencyServicesScreen = () => {
 };
 
 const styles = StyleSheet.create({
-	safeArea: {
+	container: {
 		flex: 1,
 	},
-	container: {
+	scrollView: {
+		flex: 1,
+	},
+	content: {
+		flexGrow: 1,
+	},
+	safeArea: {
 		flex: 1,
 	},
 	header: {
@@ -385,4 +356,4 @@ const styles = StyleSheet.create({
 	},
 });
 
-export default EmergencyServicesScreen;
+export default HomeScreen;

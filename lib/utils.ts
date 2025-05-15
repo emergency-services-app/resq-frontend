@@ -3,6 +3,19 @@ import { AxiosResponse } from "axios";
 import * as SecureStore from "expo-secure-store";
 import { z } from "zod";
 
+export function defineServiceStatus(serviceStatus: string): boolean {
+	switch (serviceStatus.toLowerCase()) {
+		case "assigned":
+			return false;
+		case "available":
+			return true;
+		case "off_duty":
+			return false;
+		default:
+			return false;
+	}
+}
+
 export const capitalizeFirstLetter = (string: string) => {
 	return string.charAt(0).toUpperCase() + string.slice(1);
 };

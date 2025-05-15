@@ -283,7 +283,6 @@ const styles = StyleSheet.create({
 	input: {
 		padding: 15,
 		borderRadius: 12,
-		borderWidth: 1,
 		fontSize: 16,
 	},
 	errorText: {

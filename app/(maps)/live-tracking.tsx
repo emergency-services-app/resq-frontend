@@ -10,6 +10,7 @@ import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { getEmergencyResponseById } from "@/services/api/emergency-response";
+import { SocketEventEnums } from "@/constants";
 
 interface ILocation {
 	latitude: number;
@@ -25,11 +26,11 @@ interface IOptimalPath {
 const LiveTrackingScreen = () => {
 	const router = useRouter();
 	const { emergencyResponseId, userLat, userLng, providerLat, providerLng, optimalPath } = useLocalSearchParams();
-	const { user } = useAuthStore();
+	const { user, serviceProvider } = useAuthStore();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const mapRef = React.useRef<MapView>(null);
-	const userId = user.id;
+	const userId = user.id || serviceProvider.id;
 
 	const [providerId, setProviderId] = useState<string | null>(null);
 	const [currentLocation, setCurrentLocation] = useState<ILocation>({
@@ -47,7 +48,6 @@ const LiveTrackingScreen = () => {
 		const getEmergencyResponse = async () => {
 			try {
 				const response = await getEmergencyResponseById(emergencyResponseId as string);
-				console.log("Response:", response.data);
 
 				setProviderId(response.data.data.providerId);
 			} catch (error) {}
@@ -63,7 +63,13 @@ const LiveTrackingScreen = () => {
 			try {
 				const parsedPaths = JSON.parse(optimalPath as string);
 				if (parsedPaths && parsedPaths.length > 0) {
-					setOptimalPathData(parsedPaths[0]);
+					// The response format is { distance, duration, latlngs }
+					const path = parsedPaths[0];
+					setOptimalPathData({
+						latlngs: path.latlngs || [],
+						duration: path.duration || 0,
+						distance: path.distance || 0,
+					});
 				}
 			} catch (error) {
 				console.error("Error parsing optimal path:", error);
@@ -86,7 +92,7 @@ const LiveTrackingScreen = () => {
 			};
 
 			setCurrentLocation(newLocation);
-			// sendLocation(emergencyResponseId as string, newLocation);
+			sendLocation(emergencyResponseId as string, location, false);
 		} catch (error) {
 			console.error("Error getting/sending location:", error);
 		}
@@ -95,40 +101,75 @@ const LiveTrackingScreen = () => {
 	useEffect(() => {
 		if (!socket || !emergencyResponseId || !providerId || !userId) return;
 
+		console.log("Initializing live tracking with:", {
+			emergencyResponseId,
+			providerId,
+			userId,
+			currentLocation,
+			providerLocation,
+		});
+
 		// Join the emergency room
 		joinEmergencyRoom(emergencyResponseId as string, userId, providerId);
 
-		startLocationUpdates(emergencyResponseId as string, !!user.serviceProvider);
+		// Start location updates for user
+		startLocationUpdates(emergencyResponseId as string, false);
 
-		const locationInterval = setInterval(sendLocationUpdate, 1000);
+		const locationInterval = setInterval(sendLocationUpdate, 5000);
 
-		socket.on("location_update", (data) => {
-			console.log("📍Provider Location Update:", data);
-			const newProviderLocation = {
-				latitude: data.latitude,
-				longitude: data.longitude,
-			};
-			setProviderLocation(newProviderLocation);
-		});
+		// Listen for location updates
+		socket.on(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
+		socket.on("optimal_path_update", handleOptimalPathUpdate);
 
-		socket.on("optimal_path_update", (data) => {
-			console.log("🛣️ Optimal Path Update:", data);
-			if (data.data && data.data.length > 0) {
-				setOptimalPathData({
-					latlngs: data.data[0].latlngs,
-					duration: data.data[0].duration,
-					distance: data.data[0].distance,
-				});
-			}
+		// Debug: Log when location updates are received
+		socket.onAny((eventName, ...args) => {
+			console.log(`Received socket event: ${eventName}`, args);
 		});
 
 		return () => {
 			clearInterval(locationInterval);
-			socket.off("location_update");
-			socket.off("optimal_path_update");
+			socket.off(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
+			socket.off("optimal_path_update", handleOptimalPathUpdate);
+			socket.offAny();
 			stopLocationUpdates();
 		};
 	}, [socket, emergencyResponseId]);
+
+	// Listen for provider location updates
+	const handleProviderLocationUpdate = (data: any) => {
+		console.log("📍Provider Location Update:", data);
+		if (data && data.location) {
+			console.log("New provider coordinates:", {
+				latitude: parseFloat(data.location.latitude),
+				longitude: parseFloat(data.location.longitude),
+			});
+			const newProviderLocation = {
+				latitude: parseFloat(data.location.latitude),
+				longitude: parseFloat(data.location.longitude),
+			};
+			setProviderLocation(newProviderLocation);
+		} else {
+			console.log("Invalid location data received:", data);
+		}
+	};
+
+	// Listen for optimal path updates
+	const handleOptimalPathUpdate = (data: any) => {
+		console.log("🛣️ Optimal Path Update:", data);
+		if (data.data && data.data.length > 0) {
+			setOptimalPathData({
+				latlngs: data.data[0].latlngs,
+				duration: data.data[0].duration,
+				distance: data.data[0].distance,
+			});
+		}
+	};
+
+	if (!userId) {
+		alert("USER ID missing");
+		router.back();
+		return;
+	}
 
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -157,19 +198,16 @@ const LiveTrackingScreen = () => {
 				}}
 				onMapReady={() => {
 					if (optimalPathData && optimalPathData.latlngs.length > 0) {
-						// Convert the optimal path coordinates to the format expected by fitToCoordinates
 						const coordinates = optimalPathData.latlngs.map(([longitude, latitude]) => ({
-							latitude,
-							longitude,
+							latitude: parseFloat(latitude.toString()),
+							longitude: parseFloat(longitude.toString()),
 						}));
 
-						// Fit the map to show the entire route with padding
 						mapRef.current?.fitToCoordinates(coordinates, {
 							edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
 							animated: true,
 						});
 					} else {
-						// If no optimal path yet, just show both markers
 						mapRef.current?.fitToCoordinates([currentLocation, providerLocation], {
 							edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
 							animated: true,
@@ -180,11 +218,11 @@ const LiveTrackingScreen = () => {
 				<Marker
 					coordinate={currentLocation}
 					title="Emergency Location"
-					description="Emergency location"
+					description="Your location"
 				>
 					<View style={[styles.markerContainer, { backgroundColor: theme.error }]}>
 						<Ionicons
-							name="car"
+							name="warning"
 							size={24}
 							color="#fff"
 						/>
@@ -196,42 +234,24 @@ const LiveTrackingScreen = () => {
 					title="Service Provider"
 					description="Service provider location"
 				>
-					<View style={[styles.markerContainer, { backgroundColor: theme.primary }]}>
+					<View style={[styles.markerContainer, { backgroundColor: theme.success }]}>
 						<Ionicons
-							name="alert-circle"
+							name="car"
 							size={24}
 							color="#fff"
 						/>
 					</View>
 				</Marker>
 
-				{optimalPathData && (
-					<>
-						<Polyline
-							coordinates={optimalPathData.latlngs.map(([longitude, latitude]) => ({
-								latitude,
-								longitude,
-							}))}
-							strokeWidth={8}
-							strokeColor={"blue"}
-						/>
-						{optimalPathData.latlngs.length > 0 && (
-							<Marker
-								coordinate={{
-									latitude: optimalPathData.latlngs[0][1],
-									longitude: optimalPathData.latlngs[0][0],
-								}}
-							>
-								<View style={[styles.markerContainer, { backgroundColor: theme.success }]}>
-									<Ionicons
-										name="car"
-										size={20}
-										color="#fff"
-									/>
-								</View>
-							</Marker>
-						)}
-					</>
+				{optimalPathData && optimalPathData.latlngs.length > 0 && (
+					<Polyline
+						coordinates={optimalPathData.latlngs.map(([longitude, latitude]) => ({
+							latitude: parseFloat(latitude.toString()),
+							longitude: parseFloat(longitude.toString()),
+						}))}
+						strokeWidth={3}
+						strokeColor={theme.success}
+					/>
 				)}
 			</MapView>
 
@@ -242,7 +262,7 @@ const LiveTrackingScreen = () => {
 						<Text style={[styles.locationText, { color: theme.text }]}>Emergency Location</Text>
 					</View>
 					<View style={styles.locationRow}>
-						<View style={[styles.markerDot, { backgroundColor: "green" }]} />
+						<View style={[styles.markerDot, { backgroundColor: theme.success }]} />
 						<Text style={[styles.locationText, { color: theme.text }]}>Service Provider</Text>
 					</View>
 				</View>
@@ -250,20 +270,20 @@ const LiveTrackingScreen = () => {
 				{optimalPathData && (
 					<View style={styles.routeInfo}>
 						<View style={styles.infoRow}>
-							<Icon
-								name="road"
+							<Ionicons
+								name="navigate"
 								size={20}
-								color={theme.primary}
+								color={theme.success}
 							/>
 							<Text style={[styles.infoText, { color: theme.text }]}>
 								{(optimalPathData.distance / 1000).toFixed(2)} km
 							</Text>
 						</View>
 						<View style={styles.infoRow}>
-							<Icon
-								name="clock-o"
+							<Ionicons
+								name="time"
 								size={20}
-								color={theme.primary}
+								color={theme.success}
 							/>
 							<Text style={[styles.infoText, { color: theme.text }]}>
 								{Math.ceil(optimalPathData.duration / 60)} minutes

@@ -12,15 +12,9 @@ const OTPScreen = () => {
 	const inputRefs = useRef<Array<TextInput | null>>([]);
 
 	const { otpToken, userId, isForgotPassword } = useGlobalSearchParams();
-	console.log(otpToken, userId);
-
-	if (!otpToken || !userId) {
-		alert("No otp token or user id found");
-		router.replace("/sign-in");
-	}
 
 	const handleOtpSubmit = async () => {
-		if (typeof otpToken !== "string" || typeof userId !== "string") return;
+		if (typeof userId !== "string") return;
 
 		if (otp.length !== 6) {
 			alert("Please enter a valid OTP");

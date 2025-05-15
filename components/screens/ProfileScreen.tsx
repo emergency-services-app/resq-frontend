@@ -116,7 +116,7 @@ const ProfileScreen = () => {
 					colors={[theme.background, theme.surface]}
 					style={styles.header}
 				>
-					<TouchableOpacity
+					{/* <TouchableOpacity
 						style={styles.backButton}
 						onPress={() => router.back()}
 					>
@@ -125,7 +125,7 @@ const ProfileScreen = () => {
 							size={24}
 							color={theme.text}
 						/>
-					</TouchableOpacity>
+					</TouchableOpacity> */}
 					<Text style={[styles.headerText, { color: theme.text }]}>Profile</Text>
 					<Text style={[styles.headerSubtext, { color: theme.textSecondary }]}>Manage your account settings</Text>
 				</LinearGradient>
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
 	headerText: {
 		fontSize: 24,
 		fontWeight: "bold",
-		textAlign: "left",
+		textAlign: "center",
 		paddingLeft: 40,
 	},
 	headerSubtext: {
 		fontSize: 14,
-		textAlign: "left",
+		textAlign: "center",
 		paddingLeft: 40,
 		marginTop: 5,
 	},

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
-import { loginServiceProvider, logoutServiceProvider, registerServiceProvider } from "@/services/api/serviceProvider";
+import { loginServiceProvider, logoutServiceProvider, registerServiceProvider } from "@/services/api/service-provider";
 import { TOKEN_KEY, USER_KEY } from "@/constants";
 import { authApi } from "../services/api/auth";
 import { RegisterProps, VerifyUserProps } from "@/types";
@@ -24,6 +24,8 @@ interface IAuthStore {
 	loginServiceProvider: (phoneNumber: number, password: string) => Promise<void>;
 	registerUser: (data: RegisterProps) => Promise<void>;
 	registerServiceProvider: (data: any) => Promise<void>;
+	setProviderStatus: (status: string) => void;
+	setServiceProvider: (user: any) => void;
 	logout: () => void;
 	clearError: () => void;
 	verifyOTP: (data: VerifyUserProps) => Promise<void>;
@@ -82,6 +84,14 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 		set({ user });
 	},
 
+	setServiceProvider: (serviceProvider: any) => {
+		set({ serviceProvider });
+	},
+
+	setProviderStatus: (status: string) => {
+		set({ serviceProvider: { ...get().serviceProvider, serviceStatus: status } });
+	},
+
 	loginServiceProvider: async (phoneNumber, password) => {
 		try {
 			set({ isLoading: true, error: null });
@@ -96,7 +106,7 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 					isServiceProvider: true,
 					isLoading: false,
 				});
-				router.replace("/(service-provider)/service-provider-dashboard");
+				router.replace("/(service-provider-tabs)/home");
 			} else {
 				const { otpToken, serviceProviderId: userId } = response.data;
 				router.replace({
@@ -112,6 +122,9 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 				error: error.response?.data?.message || "Login failed",
 				isLoading: false,
 			});
+			throw error;
+		} finally {
+			set({ isLoading: false });
 		}
 	},
 
@@ -145,6 +158,7 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 				error: error.response?.data?.message || "Registration failed",
 				isLoading: false,
 			});
+			throw new Error(error);
 		}
 	},
 

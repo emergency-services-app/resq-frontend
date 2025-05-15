@@ -9,6 +9,7 @@ import {
 	ActivityIndicator,
 	Modal,
 	FlatList,
+	Alert,
 } from "react-native";
 import MapView, { Marker, Polyline, Region } from "react-native-maps";
 import Icon from "@expo/vector-icons/FontAwesome";
@@ -25,6 +26,7 @@ import { lightTheme, darkTheme } from "@/constants/theme";
 import { searchLocation, LocationResult } from "@/services/api/location";
 import mapsApi from "@/services/api/maps";
 import { ILocation, ICreateEmergencyRequest, ICreateEmergencyResponse } from "@/types";
+import { getNearbyProviders, NearbyProvider } from "@/services/api/service-provider";
 
 interface OptimalPath {
 	distance: number;
@@ -93,6 +95,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 	const [routePath, setRoutePath] = useState<Array<{ latitude: number; longitude: number }>>([]);
 	const [estimatedTime, setEstimatedTime] = useState<number | null>(null);
 	const [estimatedDistance, setEstimatedDistance] = useState<number | null>(null);
+	const [nearbyProviders, setNearbyProviders] = useState<NearbyProvider[]>([]);
 
 	const getLocationName = async (latitude: number, longitude: number) => {
 		try {
@@ -162,6 +165,24 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 		initializeLocation();
 	}, []);
 
+	useEffect(() => {
+		const fetchNearbyProviders = async () => {
+			try {
+				if (location) {
+					const res = await getNearbyProviders({
+						latitude: location.coords.latitude,
+						longitude: location.coords.longitude,
+						serviceType: currentServiceType,
+					});
+					setNearbyProviders(res.data.providers || []);
+				}
+			} catch (err) {
+				console.log("Error fetching nearby providers", err);
+			}
+		};
+		fetchNearbyProviders();
+	}, [location, currentServiceType]);
+
 	const handleCreateServiceResponse = async () => {
 		try {
 			setError(null);
@@ -182,8 +203,8 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 					await createEmergencyResponse({
 						emergencyRequestId: requestId,
 						destLocation: {
-							latitude: selectedDestination.latitude,
-							longitude: selectedDestination.longitude,
+							latitude: selectedDestination.latitude + 0.01,
+							longitude: selectedDestination.longitude + 0.01,
 						},
 					}),
 				() => setIsCreating(true),
@@ -194,6 +215,8 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 					setResponseData(data);
 
 					if (data.optimalPath && data.optimalPath.length > 0) {
+						console.log(data, "RESPONSE CREATED DATA");
+
 						setRoutePath(data.optimalPath[0].latlngs);
 						setEstimatedTime(data.optimalPath[0].duration);
 						setEstimatedDistance(data.optimalPath[0].distance);
@@ -253,6 +276,11 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 		}
 	};
 
+	const handleClearSearch = () => {
+		setSearchQuery("");
+		setSearchResults([]);
+	};
+
 	const handleLocationSelect = (location: LocationResult) => {
 		setShowLocationSearch(false);
 		setSearchQuery("");
@@ -272,6 +300,19 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 		mapRef?.animateToRegion(newDestination);
 	};
 
+	const handleBackPress = () => {
+		Alert.alert("Cancel Request", "Are you sure you want to cancel this request?", [
+			{
+				text: "No",
+				style: "cancel",
+			},
+			{
+				text: "Yes",
+				onPress: () => router.back(),
+			},
+		]);
+	};
+
 	if (isLoadingLocation) {
 		return (
 			<View style={[styles.container, styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -289,7 +330,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 			<View style={[styles.header, { backgroundColor: theme.surface }]}>
 				<TouchableOpacity
 					style={styles.backButton}
-					onPress={() => router.back()}
+					onPress={handleBackPress}
 				>
 					<Ionicons
 						name="arrow-back"
@@ -298,7 +339,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 					/>
 				</TouchableOpacity>
 				<Text style={[styles.headerText, { color: theme.text }]}>
-					Request {capitalizeFirstLetter(selectedServiceType)}
+					Request {capitalizeFirstLetter(currentServiceType)}
 				</Text>
 			</View>
 
@@ -317,6 +358,18 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 						value={searchQuery}
 						onChangeText={handleSearch}
 					/>
+					{searchQuery.length > 0 && (
+						<TouchableOpacity
+							onPress={handleClearSearch}
+							style={styles.clearButton}
+						>
+							<Icon
+								name="times-circle"
+								size={20}
+								color={theme.textSecondary}
+							/>
+						</TouchableOpacity>
+					)}
 					{isSearching && (
 						<ActivityIndicator
 							size="small"
@@ -327,40 +380,46 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 				</View>
 
 				{searchResults.length > 0 && (
-					<View style={[styles.searchResults, { backgroundColor: theme.surface }]}>
-						{searchResults.map((result, index) => (
-							<TouchableOpacity
-								key={index}
-								style={[styles.searchResultItem, { borderBottomColor: theme.border }]}
-								onPress={() => handleLocationSelect(result)}
-							>
-								<View style={styles.resultContent}>
-									<Icon
-										name="map-marker"
-										size={16}
-										color={theme.primary}
-										style={styles.resultIcon}
-									/>
-									<View style={styles.resultTextContainer}>
-										<Text
-											style={[styles.resultName, { color: theme.text }]}
-											numberOfLines={1}
-										>
-											{result.name}
-										</Text>
-										<Text
-											style={[styles.resultDetails, { color: theme.textSecondary }]}
-											numberOfLines={1}
-										>
-											{`${result.municipality}, ${result.district}, ${result.province}`}
-										</Text>
+					<View style={[styles.searchResultsContainer, { backgroundColor: theme.surface }]}>
+						<FlatList
+							data={searchResults}
+							keyExtractor={(item, index) => item.id || index.toString()}
+							renderItem={({ item }) => (
+								<TouchableOpacity
+									style={[styles.searchResultItem, { borderBottomColor: theme.border }]}
+									onPress={() => handleLocationSelect(item)}
+								>
+									<View style={styles.resultContent}>
+										<Icon
+											name="map-marker"
+											size={16}
+											color={theme.primary}
+											style={styles.resultIcon}
+										/>
+										<View style={styles.resultTextContainer}>
+											<Text
+												style={[styles.resultName, { color: theme.text }]}
+												numberOfLines={1}
+											>
+												{item.name}
+											</Text>
+											<Text
+												style={[styles.resultDetails, { color: theme.textSecondary }]}
+												numberOfLines={1}
+											>
+												{`${item.municipality}, ${item.district}, ${item.province}`}
+											</Text>
+										</View>
 									</View>
-								</View>
-								{result.distance && (
-									<Text style={[styles.distanceText, { color: theme.primary }]}>{result.distance}</Text>
-								)}
-							</TouchableOpacity>
-						))}
+									{item.distance && (
+										<Text style={[styles.distanceText, { color: theme.primary }]}>{item.distance}</Text>
+									)}
+								</TouchableOpacity>
+							)}
+							style={styles.searchResultsList}
+							contentContainerStyle={styles.searchResultsContent}
+							showsVerticalScrollIndicator={false}
+						/>
 					</View>
 				)}
 			</View>
@@ -407,6 +466,43 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 						strokeColor={theme.primary}
 					/>
 				)}
+
+				{nearbyProviders.map((provider, idx) => (
+					<Marker
+						key={provider.id || idx}
+						coordinate={{
+							latitude: parseFloat(provider.location.latitude),
+							longitude: parseFloat(provider.location.longitude),
+						}}
+						title={provider.name}
+						description={provider.serviceType}
+					>
+						<View style={{ alignItems: "center" }}>
+							<Ionicons
+								name={
+									provider.serviceType === "ambulance"
+										? "medkit"
+										: provider.serviceType === "fire"
+										? "flame"
+										: provider.serviceType === "police"
+										? "shield"
+										: "car"
+								}
+								size={32}
+								color={
+									provider.serviceType === "ambulance"
+										? "#e53935"
+										: provider.serviceType === "fire"
+										? "#fb8c00"
+										: provider.serviceType === "police"
+										? "#3949ab"
+										: "#333"
+								}
+							/>
+							<Text style={{ fontSize: 10, color: "#333" }}>{provider.name}</Text>
+						</View>
+					</Marker>
+				))}
 			</MapView>
 
 			<View style={[styles.infoContainer, { backgroundColor: theme.surface }]}>
@@ -462,7 +558,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 								color="#fff"
 								style={styles.buttonIcon}
 							/>
-							<Text style={styles.buttonText}>Request {capitalizeFirstLetter(selectedServiceType)}</Text>
+							<Text style={styles.buttonText}>Request {capitalizeFirstLetter(currentServiceType)}</Text>
 						</>
 					)}
 				</TouchableOpacity>
@@ -666,14 +762,14 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		paddingVertical: 8,
 	},
+	clearButton: {
+		padding: 4,
+		marginLeft: 8,
+	},
 	searchLoader: {
 		marginLeft: 8,
 	},
-	searchResults: {
-		position: "absolute",
-		top: "100%",
-		left: 0,
-		right: 0,
+	searchResultsContainer: {
 		marginTop: 4,
 		borderRadius: 8,
 		elevation: 4,
@@ -682,6 +778,13 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.25,
 		shadowRadius: 3.84,
 		maxHeight: 200,
+		overflow: "hidden",
+	},
+	searchResultsList: {
+		flexGrow: 0,
+	},
+	searchResultsContent: {
+		paddingVertical: 4,
 	},
 	searchResultItem: {
 		padding: 12,
@@ -697,15 +800,15 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 	},
 	resultName: {
-		fontSize: 16,
+		fontSize: 14,
 		fontWeight: "500",
 	},
 	resultDetails: {
-		fontSize: 14,
+		fontSize: 12,
 		marginTop: 2,
 	},
 	distanceText: {
-		fontSize: 14,
+		fontSize: 12,
 		fontWeight: "500",
 		marginLeft: 8,
 	},
@@ -737,9 +840,6 @@ const styles = StyleSheet.create({
 	},
 	closeButton: {
 		padding: 5,
-	},
-	searchResultsList: {
-		maxHeight: "70%",
 	},
 	searchResult: {
 		paddingVertical: 12,

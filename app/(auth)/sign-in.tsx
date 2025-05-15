@@ -56,14 +56,10 @@ const SignInScreen = () => {
 
 		try {
 			if (isServiceProvider) {
-				console.log("Attempting service provider login...");
 				await loginServiceProvider(Number(phoneNumber), password);
 			} else {
-				console.log("Attempting user login...");
 				await loginUser(Number(phoneNumber), password);
 			}
-
-			console.log("Login successful, navigating to home...");
 		} catch (error: any) {
 			console.error("Login error details:", {
 				message: error?.message,
@@ -183,15 +179,11 @@ const SignInScreen = () => {
 					</View>
 
 					<TouchableOpacity
-						style={[styles.forgotPasswordButton, isLoading && styles.buttonDisabled]}
+						style={[styles.forgotPasswordButton, isLoading && { opacity: 0.5 }]}
 						onPress={handleForgotPassword}
 						disabled={isLoading}
 					>
-						{isLoading ? (
-							<ActivityIndicator color={theme.primary} />
-						) : (
-							<Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
-						)}
+						<Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
 					</TouchableOpacity>
 
 					<TouchableOpacity
@@ -204,13 +196,17 @@ const SignInScreen = () => {
 
 					<View style={styles.footer}>
 						<View style={styles.footerRow}>
-							<Text style={[styles.footerText, { color: theme.textSecondary }]}>Don't have an account? </Text>
-							<TouchableOpacity
-								onPress={() => router.push(isServiceProvider ? "/service-provider-signup" : "/sign-up")}
-								disabled={isLoading}
-							>
-								<Text style={[styles.footerText, { color: theme.primary }]}>Sign Up</Text>
-							</TouchableOpacity>
+							{!isServiceProvider && (
+								<>
+									<Text style={[styles.footerText, { color: theme.textSecondary }]}>Don't have an account? </Text>
+									<TouchableOpacity
+										onPress={() => router.push("/sign-up")}
+										disabled={isLoading}
+									>
+										<Text style={[styles.footerText, { color: theme.primary }]}>Sign Up</Text>
+									</TouchableOpacity>
+								</>
+							)}
 						</View>
 					</View>
 				</View>

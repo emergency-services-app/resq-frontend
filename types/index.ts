@@ -132,7 +132,22 @@ export interface ICreateEmergencyContact {
 	contactAddress: string;
 }
 
-export interface EmergencyRequestInterface {}
+export interface IEmergencyRequest {
+	id: string;
+	userId: string;
+	serviceType: string;
+	requestStatus: "pending" | "assigned" | "rejected" | "in_progress";
+	requestTime: Date | string;
+	dispatchTime: Date | string | null;
+	arrivalTime: Date | string | null;
+	description: string | null;
+	location: {
+		latitude: string;
+		longitude: string;
+	};
+	createdAt: string;
+	updatedAt: string;
+}
 
 export interface IServiceProvider {
 	id: string;

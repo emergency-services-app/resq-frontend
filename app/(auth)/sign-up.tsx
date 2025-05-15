@@ -17,20 +17,16 @@ import Icon from "@expo/vector-icons/FontAwesome";
 import { useThemeStore } from "../../store/themeStore";
 import { lightTheme, darkTheme } from "../../constants/theme";
 import { useAuthStore } from "../../store/authStore";
+import { useSignUpStore } from "../../store/signupStore";
+import Checkbox from "expo-checkbox";
 
 const SignUpScreen = () => {
 	const router = useRouter();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const { registerUser, error, clearError } = useAuthStore();
+	const { formData, setFormData, resetForm } = useSignUpStore();
 
-	const [name, setName] = useState("");
-	const [age, setAge] = useState("");
-	const [email, setEmail] = useState("");
-	const [phoneNumber, setPhoneNumber] = useState("");
-	const [primaryAddress, setPrimaryAddress] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -39,52 +35,56 @@ const SignUpScreen = () => {
 	const validateForm = () => {
 		const newErrors: { [key: string]: string } = {};
 
-		if (!name.trim()) {
+		if (!formData.name.trim()) {
 			newErrors.name = "Name is required";
-		} else if (name.length > 50) {
+		} else if (formData.name.length > 50) {
 			newErrors.name = "Name must be less than 50 characters";
 		}
 
-		if (!age.trim()) {
+		if (!formData.age.trim()) {
 			newErrors.age = "Age is required";
-		} else if (isNaN(Number(age)) || Number(age) <= 0) {
+		} else if (isNaN(Number(formData.age)) || Number(formData.age) <= 0) {
 			newErrors.age = "Please enter a valid age";
 		}
 
-		if (!email.trim()) {
+		if (!formData.email.trim()) {
 			newErrors.email = "Email is required";
-		} else if (!/\S+@\S+\.\S+/.test(email)) {
+		} else if (!/\S+@\S+\.\S+/.test(formData.email)) {
 			newErrors.email = "Please enter a valid email";
 		}
 
-		if (!phoneNumber.trim()) {
+		if (!formData.phoneNumber.trim()) {
 			newErrors.phoneNumber = "Phone number is required";
-		} else if (!/^\d{10}$/.test(phoneNumber)) {
+		} else if (!/^\d{10}$/.test(formData.phoneNumber)) {
 			newErrors.phoneNumber = "Please enter a valid 10-digit phone number";
 		}
 
-		if (!primaryAddress.trim()) {
+		if (!formData.primaryAddress.trim()) {
 			newErrors.primaryAddress = "Primary address is required";
 		}
 
-		if (!password.trim()) {
+		if (!formData.password.trim()) {
 			newErrors.password = "Password is required";
-		} else if (password.length < 8) {
+		} else if (formData.password.length < 8) {
 			newErrors.password = "Password must be at least 8 characters";
-		} else if (!/[A-Z]/.test(password)) {
+		} else if (!/[A-Z]/.test(formData.password)) {
 			newErrors.password = "Password must contain at least one uppercase letter";
-		} else if (!/[a-z]/.test(password)) {
+		} else if (!/[a-z]/.test(formData.password)) {
 			newErrors.password = "Password must contain at least one lowercase letter";
-		} else if (!/[0-9]/.test(password)) {
+		} else if (!/[0-9]/.test(formData.password)) {
 			newErrors.password = "Password must contain at least one number";
-		} else if (!/[^A-Za-z0-9]/.test(password)) {
+		} else if (!/[^A-Za-z0-9]/.test(formData.password)) {
 			newErrors.password = "Password must contain at least one special character";
 		}
 
-		if (!confirmPassword.trim()) {
+		if (!formData.confirmPassword.trim()) {
 			newErrors.confirmPassword = "Please confirm your password";
-		} else if (password !== confirmPassword) {
+		} else if (formData.password !== formData.confirmPassword) {
 			newErrors.confirmPassword = "Passwords do not match";
+		}
+
+		if (!formData.acceptedTerms) {
+			newErrors.terms = "You must accept the terms and conditions";
 		}
 
 		setErrors(newErrors);
@@ -98,19 +98,26 @@ const SignUpScreen = () => {
 		clearError();
 
 		try {
-			await registerUser({
-				name,
-				age: Number(age),
-				email,
-				phoneNumber: Number(phoneNumber),
-				primaryAddress,
-				password,
+			const response = await registerUser({
+				name: formData.name,
+				age: Number(formData.age),
+				email: formData.email,
+				phoneNumber: Number(formData.phoneNumber),
+				primaryAddress: formData.primaryAddress,
+				password: formData.password,
 			});
+
+			console.log("LOGIN RESPONSE", response);
 
 			Alert.alert("Success", "Registration successful! Please verify your email to continue.", [
 				{
 					text: "OK",
-					onPress: () => router.replace("/sign-in"),
+					onPress: () => {
+						resetForm();
+						router.replace({
+							pathname: "/otp-screen",
+						});
+					},
 				},
 			]);
 		} catch (error: any) {
@@ -161,8 +168,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter your full name"
 								placeholderTextColor={theme.textSecondary}
-								value={name}
-								onChangeText={setName}
+								value={formData.name}
+								onChangeText={(text) => setFormData({ name: text })}
 								maxLength={50}
 								editable={!isLoading}
 							/>
@@ -183,8 +190,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter your age"
 								placeholderTextColor={theme.textSecondary}
-								value={age}
-								onChangeText={setAge}
+								value={formData.age}
+								onChangeText={(text) => setFormData({ age: text })}
 								keyboardType="number-pad"
 								editable={!isLoading}
 							/>
@@ -205,8 +212,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter your email"
 								placeholderTextColor={theme.textSecondary}
-								value={email}
-								onChangeText={setEmail}
+								value={formData.email}
+								onChangeText={(text) => setFormData({ email: text })}
 								keyboardType="email-address"
 								autoCapitalize="none"
 								editable={!isLoading}
@@ -228,8 +235,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter phone number"
 								placeholderTextColor={theme.textSecondary}
-								value={phoneNumber}
-								onChangeText={setPhoneNumber}
+								value={formData.phoneNumber}
+								onChangeText={(text) => setFormData({ phoneNumber: text })}
 								keyboardType="phone-pad"
 								maxLength={10}
 								editable={!isLoading}
@@ -251,8 +258,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter your primary address"
 								placeholderTextColor={theme.textSecondary}
-								value={primaryAddress}
-								onChangeText={setPrimaryAddress}
+								value={formData.primaryAddress}
+								onChangeText={(text) => setFormData({ primaryAddress: text })}
 								editable={!isLoading}
 							/>
 						</View>
@@ -274,8 +281,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Enter password"
 								placeholderTextColor={theme.textSecondary}
-								value={password}
-								onChangeText={setPassword}
+								value={formData.password}
+								onChangeText={(text) => setFormData({ password: text })}
 								secureTextEntry={!showPassword}
 								editable={!isLoading}
 							/>
@@ -321,8 +328,8 @@ const SignUpScreen = () => {
 								style={[styles.input, { color: theme.text }]}
 								placeholder="Confirm password"
 								placeholderTextColor={theme.textSecondary}
-								value={confirmPassword}
-								onChangeText={setConfirmPassword}
+								value={formData.confirmPassword}
+								onChangeText={(text) => setFormData({ confirmPassword: text })}
 								secureTextEntry={!showConfirmPassword}
 								editable={!isLoading}
 							/>
@@ -343,9 +350,26 @@ const SignUpScreen = () => {
 						)}
 					</View>
 
-					{errors.submit && (
-						<Text style={[styles.errorText, { color: theme.error, textAlign: "center" }]}>{errors.submit}</Text>
-					)}
+					<View style={styles.termsContainer}>
+						<Checkbox
+							value={formData.acceptedTerms}
+							onValueChange={(value) => setFormData({ acceptedTerms: value })}
+							color={formData.acceptedTerms ? theme.primary : undefined}
+							disabled={isLoading}
+						/>
+						<View style={styles.termsTextContainer}>
+							<Text style={[styles.termsText, { color: theme.text }]}>
+								I agree to the{" "}
+								<Text
+									style={[styles.termsLink, { color: theme.primary }]}
+									onPress={() => router.push("/(others)/terms-and-conditions")}
+								>
+									Terms and Conditions
+								</Text>
+							</Text>
+						</View>
+					</View>
+					{errors.terms && <Text style={[styles.errorText, { color: theme.error }]}>{errors.terms}</Text>}
 
 					<TouchableOpacity
 						style={[styles.submitButton, { backgroundColor: theme.primary }, isLoading && styles.buttonDisabled]}
@@ -381,9 +405,9 @@ const styles = StyleSheet.create({
 	},
 	backButton: {
 		position: "absolute",
-		top: 15,
-		left: 15,
-		zIndex: 10,
+		top: 40,
+		left: 20,
+		zIndex: 1,
 		padding: 10,
 	},
 	header: {
@@ -468,11 +492,11 @@ const styles = StyleSheet.create({
 	},
 	footer: {
 		marginTop: 20,
-		alignItems: "center",
 	},
 	footerRow: {
 		flexDirection: "row",
-		marginTop: 10,
+		justifyContent: "center",
+		alignItems: "center",
 	},
 	footerText: {
 		fontSize: 14,
@@ -489,6 +513,22 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		marginLeft: 8,
 		marginBottom: 2,
+	},
+	termsContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 20,
+		marginTop: 10,
+	},
+	termsTextContainer: {
+		flex: 1,
+		marginLeft: 10,
+	},
+	termsText: {
+		fontSize: 14,
+	},
+	termsLink: {
+		textDecorationLine: "underline",
 	},
 });
 
