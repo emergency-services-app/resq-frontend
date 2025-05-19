@@ -58,7 +58,7 @@ const OTPScreen = () => {
       <Text style={styles.subtitle}>YOUR EMERGENCY PARTNER</Text> */}
 
 			<Text style={styles.otpText}>Enter OTP</Text>
-			<Text style={styles.infoText}>An OTP Has Been Sent To 98********</Text>
+			<Text style={styles.infoText}>An OTP Has Been Sent To your linked email</Text>
 
 			<View style={styles.otpInputContainer}>
 				{Array(6)
@@ -88,7 +88,7 @@ const OTPScreen = () => {
 			</View>
 
 			{isForgotPassword === "true" && (
-				<View>
+				<View style={styles.passwordInputContainer}>
 					<TextInput
 						placeholder="New Password"
 						value={password}
@@ -147,6 +147,10 @@ const styles = StyleSheet.create({
 	otpInputContainer: {
 		flexDirection: "row",
 		justifyContent: "space-between",
+		width: "100%",
+		marginBottom: 20,
+	},
+	passwordInputContainer: {
 		width: "100%",
 		marginBottom: 20,
 	},

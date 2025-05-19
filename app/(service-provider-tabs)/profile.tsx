@@ -20,32 +20,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { updateServiceProviderStatus } from "@/services/api/service-provider";
 import { capitalizeFirstLetter, defineServiceStatus } from "@/lib/utils";
+import ServiceProviderStatus from "@/components/screens/ServiceProviderStatus";
 
 const ServiceProviderProfileScreen = () => {
 	const router = useRouter();
-	const { isDarkMode } = useThemeStore();
+	const { isDarkMode, toggleDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const user = useAuthStore((state) => state.serviceProvider);
-	const { setProviderStatus } = useAuthStore();
-	const [isUpdating, setIsUpdating] = useState(false);
-	const [isAvailable, setIsAvailable] = useState(defineServiceStatus(user.serviceStatus));
 	const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-
-	const handleStatusChange = async (newStatus: boolean) => {
-		try {
-			setIsAvailable(newStatus);
-			setIsUpdating(true);
-			const status = newStatus ? "available" : "off_duty";
-			await updateServiceProviderStatus({ status });
-			setProviderStatus(status);
-		} catch (error: any) {
-			Alert.alert("Error", error.response?.data?.message || "Failed to update status. Please try again.");
-			setIsAvailable(!newStatus);
-		} finally {
-			setIsUpdating(false);
-		}
-	};
 
 	const menuItems = [
 		{
@@ -71,6 +54,15 @@ const ServiceProviderProfileScreen = () => {
 			onValueChange: (value: boolean) => {
 				setNotificationsEnabled(value);
 				// Optionally persist preference here
+			},
+		},
+		{
+			icon: "moon-outline",
+			label: "Dark Mode",
+			type: "switch",
+			value: isDarkMode,
+			onValueChange: async () => {
+				await toggleDarkMode();
 			},
 		},
 		{
@@ -126,18 +118,7 @@ const ServiceProviderProfileScreen = () => {
 						<Text style={[styles.role, { color: theme.textSecondary }]}>Service Provider</Text>
 
 						<View style={[styles.statusContainer, { backgroundColor: theme.surface }]}>
-							<View style={styles.statusRow}>
-								<Text style={[styles.statusLabel, { color: theme.text }]}>Service Status</Text>
-								<Switch
-									value={isAvailable}
-									onValueChange={handleStatusChange}
-									trackColor={{ false: theme.border, true: theme.primary }}
-									thumbColor={isAvailable ? "#fff" : "#f4f3f4"}
-								/>
-							</View>
-							<Text style={[styles.statusText, { color: isAvailable ? theme.success : theme.error }]}>
-								{isAvailable ? "Available for Service" : "Currently Unavailable"}
-							</Text>
+							<ServiceProviderStatus />
 						</View>
 					</View>
 

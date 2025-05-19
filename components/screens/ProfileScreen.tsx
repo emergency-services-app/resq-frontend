@@ -116,16 +116,6 @@ const ProfileScreen = () => {
 					colors={[theme.background, theme.surface]}
 					style={styles.header}
 				>
-					{/* <TouchableOpacity
-						style={styles.backButton}
-						onPress={() => router.back()}
-					>
-						<Ionicons
-							name="arrow-back"
-							size={24}
-							color={theme.text}
-						/>
-					</TouchableOpacity> */}
 					<Text style={[styles.headerText, { color: theme.text }]}>Profile</Text>
 					<Text style={[styles.headerSubtext, { color: theme.textSecondary }]}>Manage your account settings</Text>
 				</LinearGradient>
@@ -220,7 +210,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	header: {
-		textAlign: "left",
 		padding: 15,
 		paddingTop: 15,
 		paddingBottom: 15,
@@ -242,12 +231,10 @@ const styles = StyleSheet.create({
 		fontSize: 24,
 		fontWeight: "bold",
 		textAlign: "center",
-		paddingLeft: 40,
 	},
 	headerSubtext: {
 		fontSize: 14,
 		textAlign: "center",
-		paddingLeft: 40,
 		marginTop: 5,
 	},
 	profileSection: {

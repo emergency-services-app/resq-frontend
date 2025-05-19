@@ -61,7 +61,7 @@ const SignInScreen = () => {
 				await loginUser(Number(phoneNumber), password);
 			}
 		} catch (error: any) {
-			console.error("Login error details:", {
+			console.log("Login error details:", {
 				message: error?.message,
 				response: error?.response?.data,
 				status: error?.response?.status,
@@ -75,12 +75,6 @@ const SignInScreen = () => {
 	};
 
 	const handleForgotPassword = async () => {
-		if (!phoneNumber.trim()) {
-			Alert.alert("Error", "Please enter your phone number first", [{ text: "OK" }]);
-			return;
-		}
-
-		setIsLoading(true);
 		clearError();
 
 		router.push({

@@ -19,7 +19,6 @@ interface NotificationState {
 }
 
 function handleRegistrationError(errorMessage: string) {
-	alert(errorMessage);
 	throw new Error(errorMessage);
 }
 
@@ -68,13 +67,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 				await api.post("/notifications/token", { token: token.data });
 				set({ pushToken: token.data, isRegistered: true });
 			} catch (error: any) {
-				console.error("Error getting push token:", error.message);
+				console.log("Error getting push token:", error.message);
 				if (error.message.includes("EXPERIENCE_NOT_FOUND")) {
-					console.error("Please ensure your Expo project ID is correct in app.json");
+					console.log("Please ensure your Expo project ID is correct in app.json");
 				}
 			}
 		} catch (error) {
-			console.error("Error registering for push notifications:", error);
+			console.log("Error registering for push notifications:", error);
 		}
 	},
 

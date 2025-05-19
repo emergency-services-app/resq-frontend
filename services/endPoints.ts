@@ -22,6 +22,7 @@ export const emergencyRequestEndpoints = {
 export const emergencyResponseEndpoints = {
 	create: "/emergency-response",
 	getUsersResponses: "/emergency-response",
+	getProviderResponses: "/emergency-response/provider-responses",
 	getResponseById: (id: string) => `/emergency-response/${id}`,
 	updateResponse: (id: string) => `/emergency-response/${id}`,
 	deleteResponse: (id: string) => `/emergency-response/${id}`,

@@ -16,6 +16,11 @@ export function defineServiceStatus(serviceStatus: string): boolean {
 	}
 }
 
+export const isValidEmail = (email: string) => {
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	return emailRegex.test(email);
+};
+
 export const capitalizeFirstLetter = (string: string) => {
 	return string.charAt(0).toUpperCase() + string.slice(1);
 };

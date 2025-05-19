@@ -82,7 +82,7 @@ class NotificationService {
 
 	public async registerPushToken() {
 		if (!this.pushToken) {
-			console.error("No push token available");
+			console.log("No push token available");
 			return;
 		}
 
@@ -91,7 +91,7 @@ class NotificationService {
 				token: this.pushToken,
 			});
 		} catch (error) {
-			console.error("Error registering push token:", error);
+			console.log("Error registering push token:", error);
 		}
 	}
 
@@ -104,7 +104,7 @@ class NotificationService {
 			});
 			return response.data;
 		} catch (error) {
-			console.error("Error fetching notifications:", error);
+			console.log("Error fetching notifications:", error);
 			return [];
 		}
 	}
@@ -113,7 +113,7 @@ class NotificationService {
 		try {
 			await api.put(`/notifications/${notificationId}/read`, {});
 		} catch (error) {
-			console.error("Error marking notification as read:", error);
+			console.log("Error marking notification as read:", error);
 		}
 	}
 

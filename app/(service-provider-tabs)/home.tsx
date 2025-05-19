@@ -20,9 +20,9 @@ import { useAuthStore } from "@/store/authStore";
 import MapView, { Marker } from "react-native-maps";
 import { useSocketStore } from "@/store/socketStore";
 import { SocketEventEnums } from "@/constants";
-import { capitalizeFirstLetter, defineServiceStatus } from "@/lib/utils";
-import { updateServiceProviderStatus } from "@/services/api/service-provider";
+import { capitalizeFirstLetter } from "@/lib/utils";
 import { useNotificationStore } from "@/store/notificationStore";
+import ServiceProviderStatus from "@/components/screens/ServiceProviderStatus";
 
 const ServiceProviderHomeScreen = () => {
 	const router = useRouter();
@@ -30,46 +30,24 @@ const ServiceProviderHomeScreen = () => {
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const user = useAuthStore((state) => state.serviceProvider);
 	const { setProviderStatus } = useAuthStore();
-	const [isAvailable, setIsAvailable] = useState(defineServiceStatus(user.serviceStatus));
-	const [isUpdating, setIsUpdating] = useState(false);
 	const { socket } = useSocketStore();
 	const { scheduleLocalNotification } = useNotificationStore();
 
-	const handleStatusChange = async (newStatus: boolean) => {
-		try {
-			setIsAvailable(newStatus);
-			setIsUpdating(true);
-			const status = newStatus ? "available" : "off_duty";
-			await updateServiceProviderStatus({ status });
-			setProviderStatus(status);
-		} catch (error: any) {
-			Alert.alert("Error", error.response?.data?.message || "Failed to update status. Please try again.");
-			setIsAvailable(!newStatus);
-		} finally {
-			setIsUpdating(false);
-		}
-	};
-
 	const menuItems = [
 		{
-			icon: "list-outline" as const,
-			label: "Active Requests",
-			onPress: () => alert("Active Requests"),
-		},
-		{
 			icon: "time-outline" as const,
-			label: "Request History",
-			onPress: () => alert("Request History"),
+			label: "Response History",
+			onPress: () => router.push("/service-provider/provider-responses"),
 		},
 		{
 			icon: "location-outline" as const,
 			label: "Update Location",
-			onPress: () => alert("Update Location"),
+			onPress: () => router.push("/service-provider/update-location"),
 		},
 		{
 			icon: "settings-outline" as const,
 			label: "Service Settings",
-			onPress: () => alert("Service Settings"),
+			onPress: () => router.push("/service-provider/service-settings"),
 		},
 	];
 
@@ -80,51 +58,57 @@ const ServiceProviderHomeScreen = () => {
 			console.log("[ServiceProviderDashboard] Socket connected");
 		};
 
-		const handleStatusUpdate = (data: { status: string }) => {
-			console.log("[ServiceProviderDashboard] Status update received:", data);
-			const newStatus = data.status === "available";
-			setIsAvailable(newStatus);
-			setProviderStatus(data.status);
-		};
-
 		const handleEmergencyAssigned = (data: any) => {
 			console.log("[ServiceProviderDashboard] Emergency assigned:", data);
 			const { emergencyResponse, optimalPath } = data;
-
-			const parameters = {
-				responseId: emergencyResponse.id,
-				emergencyLat: emergencyResponse.destinationLocation?.latitude?.toString() || "",
-				emergencyLng: emergencyResponse.destinationLocation?.longitude?.toString() || "",
-				providerLat: emergencyResponse.originLocation?.latitude?.toString() || "",
-				providerLng: emergencyResponse.originLocation?.longitude?.toString() || "",
-				optimalPath: JSON.stringify(optimalPath || []),
-				status: emergencyResponse.statusUpdate || "assigned",
-			};
-
-			router.replace({
-				pathname: "../(service-provider)/live-tracking",
-				params: parameters,
+			router.push({
+				pathname: "../(maps)/live-tracking",
+				params: {
+					emergencyResponseId: emergencyResponse?.id,
+					userLat: data?.emergencyResponse?.destinationLocation.latitude.toString() || "",
+					userLng: data?.emergencyResponse?.destinationLocation.longitude.toString() || "",
+					providerLat: data?.emergencyResponse.originLocation.latitude.toString(),
+					providerLng: data?.emergencyResponse.originLocation.longitude.toString(),
+					optimalPath: JSON.stringify(data?.optimalPath),
+				},
 			});
 
-			const notificationTitle = "New Emergency Assignment";
-			const notificationBody = `Emergency Type: ${emergencyResponse.emergencyType}\nLocation: ${
-				parameters.emergencyLat
-			}, ${parameters.emergencyLng}\nDistance: ${optimalPath?.distance || "Calculating..."}`;
+			// const parameters = {
+			// 	responseId: emergencyResponse.id,
+			// 	providerLat: emergencyResponse.destinationLocation?.latitude?.toString() || "",
+			// 	providerLng: emergencyResponse.destinationLocation?.longitude?.toString() || "",
+			// 	emergencyLat: emergencyResponse.originLocation?.latitude?.toString() || "",
+			// 	emergencyLng: emergencyResponse.originLocation?.longitude?.toString() || "",
+			// 	optimalPath: JSON.stringify(optimalPath || []),
+			// 	status: emergencyResponse.statusUpdate || "assigned",
+			// };
 
-			scheduleLocalNotification(notificationTitle, notificationBody, {
-				emergencyResponse,
-				optimalPath,
-			});
+			// router.replace({
+			// 	pathname: "../(service-provider)/live-tracking",
+			// 	params: parameters,
+			// });
+
+			// const notificationTitle = "New Emergency Assignment";
+			// const notificationBody = `Emergency Type: ${
+			// 	emergencyResponse.emergencyType
+			// }\nLocation: ${emergencyResponse.originLocation?.latitude?.toString()}, ${emergencyResponse.originLocation?.latitude?.toString()}\nDistance: ${
+			// 	optimalPath?.distance || "Calculating..."
+			// }`;
+
+			// scheduleLocalNotification(notificationTitle, notificationBody, {
+			// 	emergencyResponse,
+			// });
 		};
 
-		const handleNotification = (data: any) => {
+		const handleNotification = async (data: any) => {
 			console.log("[ServiceProviderDashboard] Notification received:", data);
 			console.log("NOTIFICATION CREATED", data);
 
-			if (data.type === "emergency" && data.metadata) {
+			if (data.type) {
 				const { emergencyType, location, eta, distance, userInfo } = data.metadata;
-				const notificationTitle = `New ${emergencyType} Emergency`;
-				const notificationBody = `Location: ${location?.latitude}, ${location?.longitude}\nETA: ${eta}\nDistance: ${distance}\nUser: ${userInfo?.name}\nContact: ${userInfo?.contact}`;
+
+				const notificationTitle = `Emergency Service: ${emergencyType}`;
+				const notificationBody = `Requested by ${userInfo?.name}\t${userInfo?.contact} at ${location.generalName}`;
 
 				scheduleLocalNotification(notificationTitle, notificationBody, data);
 			} else {
@@ -137,14 +121,12 @@ const ServiceProviderHomeScreen = () => {
 		};
 
 		socket.on(SocketEventEnums.CONNECTION_EVENT, handleConnect);
-		socket.on(SocketEventEnums.PROVIDER_STATUS_UPDATED, handleStatusUpdate);
-		socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, handleEmergencyAssigned);
 		socket.on(SocketEventEnums.NOTIFICATION_CREATED, handleNotification);
+		socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, handleEmergencyAssigned);
 
 		// Cleanup
 		return () => {
 			socket.off(SocketEventEnums.CONNECTION_EVENT, handleConnect);
-			socket.off(SocketEventEnums.PROVIDER_STATUS_UPDATED, handleStatusUpdate);
 			socket.off(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, handleEmergencyAssigned);
 			socket.off(SocketEventEnums.NOTIFICATION_CREATED, handleNotification);
 		};
@@ -183,21 +165,7 @@ const ServiceProviderHomeScreen = () => {
 				</View>
 
 				<View style={styles.content}>
-					<View style={[styles.statusCard, { backgroundColor: theme.surface }]}>
-						<View style={styles.statusHeader}>
-							<Text style={[styles.statusTitle, { color: theme.text }]}>Service Status</Text>
-							<Switch
-								value={isAvailable}
-								onValueChange={handleStatusChange}
-								trackColor={{ false: theme.border, true: theme.primary }}
-								thumbColor={isAvailable ? "#fff" : "#f4f3f4"}
-								disabled={isUpdating}
-							/>
-						</View>
-						<Text style={[styles.statusText, { color: isAvailable ? theme.success : theme.error }]}>
-							{isAvailable ? "Available for Service" : "Currently Unavailable"}
-						</Text>
-					</View>
+					<ServiceProviderStatus />
 
 					<View style={styles.mapContainer}>
 						<MapView
@@ -218,18 +186,6 @@ const ServiceProviderHomeScreen = () => {
 							/>
 						</MapView>
 					</View>
-
-					{/* <TouchableOpacity
-						style={[styles.quickActionButton, { backgroundColor: theme.primary }]}
-						onPress={() => alert("Active Requests")}
-					>
-						<Ionicons
-							name="add-circle"
-							size={24}
-							color="#fff"
-						/>
-						<Text style={styles.quickActionText}>Accept New Request</Text>
-					</TouchableOpacity> */}
 
 					<View style={styles.menuSection}>
 						{menuItems.map((item, index) => (

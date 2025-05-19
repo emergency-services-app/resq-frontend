@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { getRecentEmergencyRequests } from "@/services/api/emergency-request";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
@@ -29,7 +29,7 @@ const RecentRequests = () => {
 			}
 		} catch (error) {
 			setError("Failed to fetch recent requests");
-			console.error("Error fetching recent requests:", error);
+			console.log("Error fetching recent requests:", error);
 		} finally {
 			setLoading(false);
 		}
@@ -68,7 +68,7 @@ const RecentRequests = () => {
 	const renderItem = ({ item }: { item: IEmergencyRequest }) => (
 		<TouchableOpacity
 			style={[styles.requestCard, { backgroundColor: theme.surface }]}
-			onPress={() => router.push(`/(maps)/live-tracking?emergencyResponseId=${item.id}`)}
+			// onPress={() => router.push(`/(maps)/live-tracking?emergencyResponseId=${item.id}`)}
 		>
 			<View style={styles.cardHeader}>
 				<View style={styles.serviceType}>
@@ -129,14 +129,16 @@ const RecentRequests = () => {
 	return (
 		<View style={styles.container}>
 			<Text style={[styles.title, { color: theme.text }]}>Recent Requests</Text>
-			<FlatList
-				data={recentRequests}
-				renderItem={renderItem}
-				keyExtractor={(item) => item.id}
+			<ScrollView
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={styles.listContainer}
-				ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No recent requests</Text>}
-			/>
+			>
+				{recentRequests.length === 0 ? (
+					<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No recent requests</Text>
+				) : (
+					recentRequests.map((item) => <View key={item.id}>{renderItem({ item })}</View>)
+				)}
+			</ScrollView>
 		</View>
 	);
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import {
 	View,
 	Text,
@@ -10,23 +10,21 @@ import {
 	Modal,
 	FlatList,
 	Alert,
+	ScrollView,
 } from "react-native";
 import MapView, { Marker, Polyline, Region } from "react-native-maps";
 import Icon from "@expo/vector-icons/FontAwesome";
 import { Ionicons } from "@expo/vector-icons";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import { capitalizeFirstLetter, requestHandler } from "@/lib/utils";
-import { createEmergencyRequest } from "@/services/api/emergency-request";
-import { useAuthStore } from "@/store/authStore";
 import { createEmergencyResponse } from "@/services/api/emergency-response";
 import { useLocationStore } from "@/store/locationStore";
 import * as Location from "expo-location";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
-import { searchLocation, LocationResult } from "@/services/api/location";
 import mapsApi from "@/services/api/maps";
-import { ILocation, ICreateEmergencyRequest, ICreateEmergencyResponse } from "@/types";
 import { getNearbyProviders, NearbyProvider } from "@/services/api/service-provider";
+import { useAuthStore } from "@/store/authStore";
 
 interface OptimalPath {
 	distance: number;
@@ -35,6 +33,18 @@ interface OptimalPath {
 		latitude: number;
 		longitude: number;
 	}>;
+}
+
+export interface LocationResult {
+	name: string;
+	province: string;
+	distance: string;
+	district: string;
+	municipality: string;
+	ward: string;
+	geometry: string;
+	nameLower: string;
+	id: string;
 }
 
 interface EmergencyResponse {
@@ -203,10 +213,11 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 					await createEmergencyResponse({
 						emergencyRequestId: requestId,
 						destLocation: {
-							latitude: selectedDestination.latitude + 0.01,
-							longitude: selectedDestination.longitude + 0.01,
+							latitude: selectedDestination.latitude,
+							longitude: selectedDestination.longitude,
 						},
 					}),
+
 				() => setIsCreating(true),
 				(res) => {
 					const { data } = res;
@@ -232,17 +243,19 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 
 					if (data.emergencyResponse && data.emergencyResponse.length > 0) {
 						const responseId = data.emergencyResponse[0].id;
-						router.push({
-							pathname: "/live-tracking",
-							params: {
-								responseId: responseId,
-								userLat: location?.coords.latitude.toString() || "",
-								userLng: location?.coords.longitude.toString() || "",
-								providerLat: selectedDestination.latitude.toString(),
-								providerLng: selectedDestination.longitude.toString(),
-								optimalPath: JSON.stringify(data.optimalPath),
-							},
-						});
+						if (data.emergencyResponse[0].destinationLocation && data.emergencyResponse[0].originLocation) {
+							router.push({
+								pathname: "/live-tracking",
+								params: {
+									responseId: responseId,
+									userLat: data?.emergencyResponse[0]?.destinationLocation.latitude.toString() || "",
+									userLng: data?.emergencyResponse[0]?.destinationLocation.longitude.toString() || "",
+									providerLat: data?.emergencyResponse[0].originLocation.latitude.toString(),
+									providerLng: data?.emergencyResponse[0].originLocation.longitude.toString(),
+									optimalPath: JSON.stringify(data?.optimalPath),
+								},
+							});
+						}
 					}
 				},
 				(err) => {
@@ -270,7 +283,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 			const response = await mapsApi.getAutoComplete(text, selectedDestination.latitude, selectedDestination.longitude);
 			setSearchResults(response.data);
 		} catch (error) {
-			console.error("Error searching location:", error);
+			console.log("Error searching location:", error);
 		} finally {
 			setIsSearching(false);
 		}
@@ -380,7 +393,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 				</View>
 
 				{searchResults.length > 0 && (
-					<View style={[styles.searchResultsContainer, { backgroundColor: theme.surface }]}>
+					<ScrollView style={[styles.searchResultsContainer, { backgroundColor: theme.surface }]}>
 						<FlatList
 							data={searchResults}
 							keyExtractor={(item, index) => item.id || index.toString()}
@@ -420,7 +433,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 							contentContainerStyle={styles.searchResultsContent}
 							showsVerticalScrollIndicator={false}
 						/>
-					</View>
+					</ScrollView>
 				)}
 			</View>
 
@@ -572,7 +585,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 				onRequestClose={() => setShowLocationSearch(false)}
 			>
 				<View style={styles.modalContainer}>
-					<View style={styles.modalContent}>
+					<ScrollView style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Search Location</Text>
 							<TouchableOpacity
@@ -621,7 +634,7 @@ const RequestServiceScreen: React.FC<Props> = ({ selectedServiceType = "ambulanc
 							)}
 							style={styles.searchResultsList}
 						/>
-					</View>
+					</ScrollView>
 				</View>
 			</Modal>
 		</SafeAreaView>

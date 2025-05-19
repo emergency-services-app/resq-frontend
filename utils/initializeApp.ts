@@ -4,6 +4,6 @@ export const initializeApp = async () => {
 	try {
 		await useThemeStore.getState().initializeTheme();
 	} catch (error) {
-		console.error("Error initializing app:", error);
+		console.log("Error initializing app:", error);
 	}
 };

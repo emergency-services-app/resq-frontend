@@ -28,10 +28,15 @@ const deleteEmergencyResponse = (id: string) => {
 	return api.delete(emergencyResponseEndpoints.deleteResponse(id));
 };
 
+const getProviderResponses = () => {
+	return api.get(emergencyResponseEndpoints.getProviderResponses);
+};
+
 export {
 	createEmergencyResponse,
 	getEmergencyResponses,
 	getEmergencyResponseById,
 	updateEmergencyResponse,
 	deleteEmergencyResponse,
+	getProviderResponses,
 };

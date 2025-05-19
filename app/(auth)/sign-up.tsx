@@ -109,19 +109,19 @@ const SignUpScreen = () => {
 
 			console.log("LOGIN RESPONSE", response);
 
-			Alert.alert("Success", "Registration successful! Please verify your email to continue.", [
+			Alert.alert("Success", "Registration successful! Please login to continue.", [
 				{
 					text: "OK",
 					onPress: () => {
 						resetForm();
 						router.replace({
-							pathname: "/otp-screen",
+							pathname: "/sign-in",
 						});
 					},
 				},
 			]);
 		} catch (error: any) {
-			console.error("Registration error:", error);
+			console.log("Registration error:", error);
 			Alert.alert("Error", error?.message || "Registration failed. Please try again.", [{ text: "OK" }]);
 		} finally {
 			setIsLoading(false);

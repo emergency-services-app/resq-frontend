@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
 import { BASE_URL, SocketEventEnums, TOKEN_KEY } from "@/constants";
-import socketIo, { Socket } from "socket.io-client";
+import io, { Socket } from "socket.io-client";
 
 interface LocationData {
 	latitude: string;
@@ -20,7 +20,7 @@ interface ServiceProvider {
 	name: string;
 	location: LocationData;
 	serviceType: string;
-	status: "available" | "busy" | "offline";
+	status: "available" | "off_duty" | "assigned";
 }
 
 interface ISocketStore {
@@ -29,6 +29,7 @@ interface ISocketStore {
 	isConnected: boolean;
 	lastError: string | null;
 	availableProviders: ServiceProvider[];
+	providerStatus: "available" | "off_duty" | "assigned" | null;
 	connectSocket: () => Promise<void>;
 	disconnectSocket: () => void;
 	startLocationUpdates: (emergencyResponseId: string, isProvider: boolean) => Promise<void>;
@@ -38,7 +39,7 @@ interface ISocketStore {
 	onLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 	requestEmergencyService: (serviceType: string, userLocation: LocationData) => Promise<void>;
-	updateProviderStatus: (status: "available" | "busy" | "offline") => void;
+	updateProviderStatus: (status: "available" | "off_duty" | "assigned") => void;
 	clearError: () => void;
 }
 
@@ -48,42 +49,65 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 	isConnected: false,
 	lastError: null,
 	availableProviders: [],
+	providerStatus: null,
 
 	connectSocket: async () => {
 		try {
 			const token = await SecureStore.getItemAsync(TOKEN_KEY);
 			if (!token) {
-				console.error("No token found");
-				set({ lastError: "Authentication token not found" });
+				console.log("No auth token found");
+				set({ lastError: "Authentication required" });
 				return;
 			}
 
-			const socket = socketIo(BASE_URL, {
-				withCredentials: true,
+			const socket = io(BASE_URL, {
 				auth: { token },
 				reconnection: true,
-				reconnectionAttempts: 5,
+				reconnectionAttempts: 10,
 				reconnectionDelay: 1000,
+				reconnectionDelayMax: 5000,
+				timeout: 20000,
 			});
 
 			socket.on(SocketEventEnums.CONNECTION_EVENT, () => {
-				console.log("🚀 Socket connected");
+				console.log("🔌 Socket connected");
 				set({ isConnected: true, lastError: null });
 			});
 
-			socket.on(SocketEventEnums.DISCONNECT_EVENT, () => {
-				console.log("🛑 Socket disconnected");
+			socket.on(SocketEventEnums.SOCKET_ERROR, (error) => {
+				console.log("Socket connection error:", error);
+				set({ lastError: "Connection error: " + error.message });
+			});
+
+			socket.on(SocketEventEnums.DISCONNECT_EVENT, (reason) => {
+				console.log("🔌 Socket disconnected:", reason);
 				set({ isConnected: false });
+				if (reason === "io server disconnect") {
+					socket.connect();
+				}
+			});
+
+			socket.on("reconnect", (attemptNumber) => {
+				console.log("🔄 Socket reconnected after", attemptNumber, "attempts");
+				set({ isConnected: true, lastError: null });
+			});
+
+			socket.on("reconnect_error", (error) => {
+				console.log("Socket reconnection error:", error);
+				set({ lastError: "Reconnection error: " + error.message });
+			});
+
+			socket.on("reconnect_failed", () => {
+				console.log("Socket reconnection failed");
+				set({ lastError: "Failed to reconnect after multiple attempts" });
 			});
 
 			socket.on(SocketEventEnums.SOCKET_ERROR, (error) => {
-				console.error("Socket error:", error);
-				set({ lastError: "Connection error. Please check your internet connection." });
+				console.log("Socket operation error:", error);
+				set({ lastError: error.message });
 			});
 
 			socket.on(SocketEventEnums.EMERGENCY_RESPONSE_CREATED, async ({ emergencyResponse }) => {
-				console.log("🆘 Emergency Response Created:", emergencyResponse);
-
 				const emergencyResponseId = emergencyResponse.id;
 				const userId = emergencyResponse.userId;
 				const providerId = emergencyResponse.serviceProviderId;
@@ -103,7 +127,9 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			});
 
 			socket.on(SocketEventEnums.PROVIDER_STATUS_UPDATED, ({ providerId, status }) => {
+				console.log("📊 Provider status updated:", { providerId, status });
 				set((state) => ({
+					providerStatus: status,
 					availableProviders: state.availableProviders.map((provider) =>
 						provider.id === providerId ? { ...provider, status } : provider
 					),
@@ -112,7 +138,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 
 			set({ socket });
 		} catch (error) {
-			console.error("Error connecting to socket:", error);
+			console.log("Error connecting to socket:", error);
 			set({ lastError: "Failed to connect to server" });
 		}
 	},
@@ -160,26 +186,33 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		try {
 			const { status } = await Location.requestForegroundPermissionsAsync();
 			if (status !== "granted") {
-				console.error("📛 Permission to access location was denied");
+				console.log("📛 Permission to access location was denied");
 				set({ lastError: "Location permission denied" });
 				return;
 			}
 
+			// Enable background location updates for emergency tracking
+			await Location.enableNetworkProviderAsync();
+
 			const watcher = await Location.watchPositionAsync(
 				{
-					accuracy: Location.Accuracy.High,
-					timeInterval: 5000,
-					distanceInterval: 10,
+					accuracy: Location.Accuracy.BestForNavigation,
+					timeInterval: 3000,
+					distanceInterval: 5,
 				},
 				(location) => {
-					sendLocation(emergencyResponseId, location, isProvider);
+					try {
+						sendLocation(emergencyResponseId, location, isProvider);
+					} catch (error) {
+						console.log("Error sending location update:", error);
+					}
 				}
 			);
 
 			set({ locationWatcher: watcher, lastError: null });
-			console.log(`📍 Started ${isProvider ? "provider" : "user"} location updates`);
+			console.log(`📍 Started ${isProvider ? "provider" : "user"} location updates with high frequency`);
 		} catch (error) {
-			console.error("Error starting location updates:", error);
+			console.log("Error starting location updates:", error);
 			set({ lastError: "Failed to start location updates" });
 		}
 	},
@@ -218,10 +251,11 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		}
 	},
 
-	updateProviderStatus: (status: "available" | "busy" | "offline") => {
+	updateProviderStatus: (status: "available" | "off_duty" | "assigned") => {
 		const { socket } = get();
-		if (socket) {
+		if (socket && status) {
 			socket.emit(SocketEventEnums.UPDATE_PROVIDER_STATUS, { status });
+			set({ providerStatus: status });
 			console.log("📊 Provider status updated:", status);
 		}
 	},

@@ -67,7 +67,7 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 				});
 			}
 		} catch (error: any) {
-			console.error("AuthStore - login error:", {
+			console.log("AuthStore - login error:", {
 				error,
 				message: error?.message,
 				response: error?.response?.data,
@@ -218,10 +218,10 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 		}
 	},
 
-	forgotPassword: async (phoneNumber) => {
+	forgotPassword: async (email) => {
 		try {
 			set({ isLoading: true, error: null });
-			await authApi.forgotPassword({ phoneNumber });
+			await authApi.forgotPassword({ email });
 			set({ error: null });
 		} catch (error: any) {
 			set({ error: error.response?.data?.message || "Failed to send reset instructions" });
@@ -238,7 +238,7 @@ export const useAuthStore = create<IAuthStore>((set, get) => ({
 				set({ isAuthenticated: true });
 			}
 		} catch (error) {
-			console.error("Error loading stored auth:", error);
+			console.log("Error loading stored auth:", error);
 		}
 	},
 }));

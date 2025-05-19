@@ -29,8 +29,8 @@ const VehicleInformationScreen = () => {
 				>
 					<View style={styles.headerContent}>
 						<TouchableOpacity
-							style={styles.backButton}
 							onPress={() => router.back()}
+							style={styles.backButton}
 						>
 							<Ionicons
 								name="arrow-back"
@@ -47,7 +47,7 @@ const VehicleInformationScreen = () => {
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Vehicle Type</Text>
 						<TextInput
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={user?.vehicleInformation.type}
+							value={user?.vehicleType}
 							editable={false}
 						/>
 					</View>
@@ -56,7 +56,7 @@ const VehicleInformationScreen = () => {
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Vehicle Number</Text>
 						<TextInput
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={user?.vehicleInformation.number}
+							value={user?.vehicleNumber}
 							editable={false}
 						/>
 					</View>
@@ -65,7 +65,7 @@ const VehicleInformationScreen = () => {
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Vehicle Model</Text>
 						<TextInput
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={user?.vehicleInformation.model}
+							value={user?.vehicleModel}
 							editable={false}
 						/>
 					</View>
@@ -74,7 +74,16 @@ const VehicleInformationScreen = () => {
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Vehicle Color</Text>
 						<TextInput
 							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={user?.vehicleInformation.color}
+							value={user?.vehicleColor}
+							editable={false}
+						/>
+					</View>
+
+					<View style={[styles.formGroup, { backgroundColor: theme.surface }]}>
+						<Text style={[styles.label, { color: theme.textSecondary }]}>License Number</Text>
+						<TextInput
+							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+							value={user?.licenseNumber}
 							editable={false}
 						/>
 					</View>
@@ -121,16 +130,17 @@ const styles = StyleSheet.create({
 	formGroup: {
 		marginBottom: 20,
 		padding: 15,
-		borderRadius: 10,
+		borderRadius: 12,
 	},
 	label: {
-		fontSize: 16,
+		fontSize: 14,
 		marginBottom: 8,
 	},
 	input: {
+		height: 50,
 		borderWidth: 1,
 		borderRadius: 8,
-		padding: 12,
+		paddingHorizontal: 15,
 		fontSize: 16,
 	},
 });

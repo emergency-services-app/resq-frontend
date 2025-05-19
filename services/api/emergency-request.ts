@@ -30,7 +30,7 @@ export const getRecentEmergencyRequests = async () => {
 		}>("/emergency-request/recent");
 		return response.data;
 	} catch (error) {
-		console.error("Error fetching recent emergency requests:", error);
+		console.log("Error fetching recent emergency requests:", error);
 		throw error;
 	}
 };

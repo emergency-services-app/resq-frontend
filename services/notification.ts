@@ -31,7 +31,7 @@ export const registerForPushNotifications = async () => {
 	try {
 		await axios.post(userEndpoints.updatePushToken, { pushToken: token });
 	} catch (error) {
-		console.error("Error updating push token:", error);
+		console.log("Error updating push token:", error);
 	}
 
 	return token;

@@ -37,7 +37,7 @@ const EmergencyContactsScreen = () => {
 				setError(null);
 			} catch (err) {
 				setError("Failed to load contacts");
-				console.error("Contacts fetch error:", err);
+				console.log("Contacts fetch error:", err);
 			} finally {
 				setLoading(false);
 			}

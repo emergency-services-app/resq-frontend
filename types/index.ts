@@ -36,7 +36,7 @@ export interface ChangePasswordProps {
 }
 
 export interface ForgotPasswordProps {
-	phoneNumber: string;
+	email: string;
 }
 
 export interface AuthStore {

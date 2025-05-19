@@ -16,6 +16,7 @@ export enum SocketEventEnums {
 	LEAVE_EMERGENCY_ROOM = "leaveEmergencyRoom",
 	EMERGENCY_RESPONSE_CREATED = "emergencyResponseCreated",
 	NOTIFICATION_CREATED = "notificationCreated",
+	EMERGENCY_RESPONSE_STATUS_UPDATED = "emergencyResponseStatusUpdated",
 
 	UPDATE_LOCATION = "updateLocation",
 	UPDATE_USER_LOCATION = "updateUserLocation",
@@ -27,6 +28,7 @@ export enum SocketEventEnums {
 	PROVIDER_STATUS_UPDATED = "providerStatusUpdated",
 	REQUEST_EMERGENCY_SERVICE = "requestEmergencyService",
 	UPDATE_PROVIDER_STATUS = "updateProviderStatus",
+	UPDATE_PROVIDER_LOCATION = "updateProviderLocation",
 
 	NEED_LOCATION = "needLocation",
 

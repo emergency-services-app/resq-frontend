@@ -1,32 +1,33 @@
-import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, SafeAreaView, StatusBar, TouchableOpacity, Alert, Platform } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+	View,
+	Text,
+	StyleSheet,
+	SafeAreaView,
+	StatusBar,
+	TouchableOpacity,
+	Alert,
+	ActivityIndicator,
+} from "react-native";
+import { useRouter } from "expo-router";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
 import { useSocketStore } from "@/store/socketStore";
 import { SocketEventEnums } from "@/constants";
-import { getEmergencyResponses, updateEmergencyResponse } from "@/services/api/emergency-response";
-import { useRouter } from "expo-router";
+import { updateEmergencyResponse } from "@/services/api/emergency-response";
 
 interface EmergencyResponse {
 	id: string;
 	emergencyRequestId: string;
 	serviceProviderId: string;
-	statusUpdate: string;
 	assignedAt: string;
-	respondedAt: string | null;
+	respondedAt: string;
+	statusUpdate: string;
 	updateDescription: string | null;
-	originLocation: {
-		latitude: string;
-		longitude: string;
-	};
-	destinationLocation: {
-		latitude: string;
-		longitude: string;
-	};
 }
 
 interface IUpdateEmergencyResponse {
@@ -58,10 +59,9 @@ const ActiveEmergenciesScreen = () => {
 			setLocation(location);
 
 			if (!socket) {
-				// TODO: LOGOOGOG
 				return;
 			}
-			// Start watching position
+
 			const subscription = await Location.watchPositionAsync(
 				{
 					accuracy: Location.Accuracy.High,
@@ -104,15 +104,14 @@ const ActiveEmergenciesScreen = () => {
 			);
 			setServiceStatus(emergencyResponse.statusUpdate || "");
 			router.push({
-				pathname: "/(service-provider-tabs)/live-tracking",
+				pathname: "../(maps)/live-tracking",
 				params: {
-					responseId: String(emergencyResponse.id),
-					emergencyLat: String(emergencyResponse.destinationLocation.latitude),
-					emergencyLng: String(emergencyResponse.destinationLocation.longitude),
-					providerLat: String(emergencyResponse.originLocation.latitude),
-					providerLng: String(emergencyResponse.originLocation.longitude),
-					optimalPath: JSON.stringify(optimalPath),
-					status: String(emergencyResponse.statusUpdate || "Assigned"),
+					emergencyResponseId: emergencyResponse?.id,
+					userLat: data?.emergencyResponse?.destinationLocation.latitude.toString() || "",
+					userLng: data?.emergencyResponse?.destinationLocation.longitude.toString() || "",
+					providerLat: data?.emergencyResponse.originLocation.latitude.toString(),
+					providerLng: data?.emergencyResponse.originLocation.longitude.toString(),
+					optimalPath: JSON.stringify(data?.optimalPath),
 				},
 			});
 		};
@@ -146,7 +145,7 @@ const ActiveEmergenciesScreen = () => {
 	const handleCompleteEmergency = async () => {
 		try {
 			setIsLoading(true);
-			if (!activeResponse) return;
+			if (!activeResponse || !socket) return;
 
 			const updateData: IUpdateEmergencyResponse = {
 				statusUpdate: "completed",
@@ -154,9 +153,11 @@ const ActiveEmergenciesScreen = () => {
 			};
 
 			await updateEmergencyResponse(activeResponse.id, updateData as any);
+			socket.emit(SocketEventEnums.UPDATE_PROVIDER_STATUS, { status: "completed" });
+			Alert.alert("Success", "Emergency response completed");
 			setActiveResponse(null);
 			setRouteCoordinates([]);
-			Alert.alert("Success", "Emergency response completed");
+			setServiceStatus("");
 		} catch (error) {
 			Alert.alert("Error", "Failed to complete emergency response");
 		} finally {
@@ -165,7 +166,7 @@ const ActiveEmergenciesScreen = () => {
 	};
 
 	return (
-		<SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
 			<StatusBar
 				barStyle={isDarkMode ? "light-content" : "dark-content"}
 				backgroundColor={theme.background}
@@ -175,29 +176,22 @@ const ActiveEmergenciesScreen = () => {
 				style={styles.header}
 			>
 				<View style={styles.headerContent}>
-					<Text style={[styles.headerText, { color: theme.text }]}>Active Emergency</Text>
+					<Text style={[styles.headerText, { color: theme.text }]}>Active Emergencies</Text>
 				</View>
 			</LinearGradient>
 
-			<View style={styles.container}>
+			<View style={styles.content}>
 				{activeResponse ? (
 					<>
 						<MapView
 							ref={mapRef}
 							style={styles.map}
-							provider={PROVIDER_GOOGLE}
-							showsUserLocation
-							showsMyLocationButton
-							initialRegion={
-								location
-									? {
-											latitude: location.coords.latitude,
-											longitude: location.coords.longitude,
-											latitudeDelta: 0.01,
-											longitudeDelta: 0.01,
-									  }
-									: undefined
-							}
+							initialRegion={{
+								latitude: location?.coords.latitude || 27.7172,
+								longitude: location?.coords.longitude || 85.324,
+								latitudeDelta: 0.0922,
+								longitudeDelta: 0.0421,
+							}}
 						>
 							{location && (
 								<Marker
@@ -206,23 +200,21 @@ const ActiveEmergenciesScreen = () => {
 										longitude: location.coords.longitude,
 									}}
 									title="Your Location"
-								/>
-							)}
-							{activeResponse.destinationLocation && (
-								<Marker
-									coordinate={{
-										latitude: parseFloat(activeResponse.destinationLocation.latitude),
-										longitude: parseFloat(activeResponse.destinationLocation.longitude),
-									}}
-									title="Emergency Location"
-									pinColor="red"
-								/>
+								>
+									<View style={[styles.markerContainer, { backgroundColor: theme.primary }]}>
+										<Ionicons
+											name="location"
+											size={24}
+											color="#fff"
+										/>
+									</View>
+								</Marker>
 							)}
 							{routeCoordinates.length > 0 && (
 								<Polyline
 									coordinates={routeCoordinates}
-									strokeWidth={4}
 									strokeColor={theme.primary}
+									strokeWidth={3}
 								/>
 							)}
 						</MapView>
@@ -276,9 +268,6 @@ const ActiveEmergenciesScreen = () => {
 };
 
 const styles = StyleSheet.create({
-	safeArea: {
-		flex: 1,
-	},
 	container: {
 		flex: 1,
 	},
@@ -298,38 +287,42 @@ const styles = StyleSheet.create({
 	headerContent: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "center",
 	},
 	headerText: {
 		fontSize: 24,
 		fontWeight: "bold",
 	},
+	content: {
+		flex: 1,
+		padding: 20,
+	},
 	map: {
 		flex: 1,
+		borderRadius: 12,
+		marginBottom: 20,
+	},
+	markerContainer: {
+		padding: 8,
+		borderRadius: 20,
+		borderWidth: 2,
+		borderColor: "#fff",
 	},
 	controls: {
 		padding: 20,
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
-		elevation: 5,
-		shadowColor: "#000",
-		shadowOffset: { width: 0, height: -2 },
-		shadowOpacity: 0.1,
-		shadowRadius: 4,
+		borderRadius: 12,
 	},
 	statusContainer: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: 15,
+		marginBottom: 20,
 	},
 	statusLabel: {
 		fontSize: 16,
-		fontWeight: "500",
-		marginRight: 8,
+		marginRight: 10,
 	},
 	statusValue: {
 		fontSize: 16,
-		fontWeight: "bold",
+		fontWeight: "600",
 	},
 	buttonContainer: {
 		flexDirection: "row",
@@ -338,13 +331,13 @@ const styles = StyleSheet.create({
 	},
 	button: {
 		flex: 1,
-		padding: 12,
+		padding: 15,
 		borderRadius: 8,
 		alignItems: "center",
 	},
 	buttonText: {
 		color: "#fff",
-		fontSize: 14,
+		fontSize: 16,
 		fontWeight: "600",
 	},
 	noEmergency: {
@@ -354,7 +347,7 @@ const styles = StyleSheet.create({
 	},
 	noEmergencyText: {
 		fontSize: 18,
-		marginTop: 16,
+		marginTop: 10,
 	},
 });
 

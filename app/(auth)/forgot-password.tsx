@@ -11,18 +11,18 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Icon from "@expo/vector-icons/FontAwesome";
+import Entypo from "@expo/vector-icons/Entypo";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
-import { requestHandler } from "@/lib/utils";
+import { isValidEmail, requestHandler } from "@/lib/utils";
 import { authApi } from "@/services/api/auth";
 
 const ForgotPasswordScreen = () => {
 	const router = useRouter();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
-	const { phoneNumber: phoneNumberParam, isForgotPassword } = useLocalSearchParams();
 
-	const [phoneNumber, setPhoneNumber] = useState(phoneNumberParam as string);
+	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -31,17 +31,22 @@ const ForgotPasswordScreen = () => {
 			setError(null);
 			setIsLoading(true);
 
-			if (!phoneNumber) {
-				setError("Please enter your phone number");
+			if (!email) {
+				setError("Please enter your linked email");
+				return;
+			}
+
+			if (!isValidEmail(email)) {
+				setError("Please enter a valid email");
 				return;
 			}
 
 			await requestHandler(
-				async () => await authApi.forgotPassword({ phoneNumber }),
+				async () => await authApi.forgotPassword({ email }),
 				() => setIsLoading(true),
 				(response) => {
 					console.log("Response:", response);
-					Alert.alert("Success", "Password reset instructions have been sent to your phone number", [{ text: "OK" }]);
+					Alert.alert("Success", "Password reset instructions have been sent to your email address.", [{ text: "OK" }]);
 					router.push({
 						pathname: "/(auth)/otp-screen",
 						params: {
@@ -70,25 +75,25 @@ const ForgotPasswordScreen = () => {
 				<View style={styles.header}>
 					<Text style={[styles.title, { color: theme.text }]}>Forgot Password</Text>
 					<Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-						Enter your phone number to reset your password
+						Enter your linked email to reset your password
 					</Text>
 				</View>
 
 				<View style={styles.form}>
 					<View style={[styles.inputContainer, { backgroundColor: theme.surface }]}>
-						<Icon
-							name="phone"
+						<Entypo
+							name="email"
 							size={20}
 							color={theme.primary}
 							style={styles.inputIcon}
 						/>
 						<TextInput
 							style={[styles.input, { color: theme.text }]}
-							placeholder="Phone Number"
+							placeholder="email "
 							placeholderTextColor={theme.textSecondary}
-							value={phoneNumber}
-							onChangeText={setPhoneNumber}
-							keyboardType="phone-pad"
+							value={email}
+							onChangeText={setEmail}
+							keyboardType="email-address"
 							autoCapitalize="none"
 						/>
 					</View>
@@ -157,7 +162,9 @@ const styles = StyleSheet.create({
 	inputContainer: {
 		flexDirection: "row",
 		alignItems: "center",
-		padding: 16,
+		padding: 8,
+		paddingLeft: 16,
+		paddingRight: 16,
 		borderRadius: 12,
 		elevation: 2,
 		shadowColor: "#000",

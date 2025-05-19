@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSocketStore } from "@/store/socketStore";
@@ -9,7 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
-import { getEmergencyResponseById } from "@/services/api/emergency-response";
+import { getEmergencyResponseById, updateEmergencyResponse } from "@/services/api/emergency-response";
 import { SocketEventEnums } from "@/constants";
 
 interface ILocation {
@@ -26,11 +26,11 @@ interface IOptimalPath {
 const LiveTrackingScreen = () => {
 	const router = useRouter();
 	const { emergencyResponseId, userLat, userLng, providerLat, providerLng, optimalPath } = useLocalSearchParams();
-	const { user, serviceProvider } = useAuthStore();
+	const { user, serviceProvider, isServiceProvider } = useAuthStore();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
 	const mapRef = React.useRef<MapView>(null);
-	const userId = user.id || serviceProvider.id;
+	const userId = isServiceProvider ? serviceProvider?.id : user?.id;
 
 	const [providerId, setProviderId] = useState<string | null>(null);
 	const [currentLocation, setCurrentLocation] = useState<ILocation>({
@@ -42,13 +42,14 @@ const LiveTrackingScreen = () => {
 		longitude: parseFloat(providerLng as string),
 	});
 	const [optimalPathData, setOptimalPathData] = useState<IOptimalPath | null>(null);
+	const [isMarkingArrived, setIsMarkingArrived] = useState(false);
+	const [isRejecting, setIsRejecting] = useState(false);
 	const { socket, joinEmergencyRoom, startLocationUpdates, stopLocationUpdates, sendLocation } = useSocketStore();
 
 	useEffect(() => {
 		const getEmergencyResponse = async () => {
 			try {
 				const response = await getEmergencyResponseById(emergencyResponseId as string);
-
 				setProviderId(response.data.data.providerId);
 			} catch (error) {}
 		};
@@ -57,7 +58,6 @@ const LiveTrackingScreen = () => {
 		return () => {};
 	}, [emergencyResponseId]);
 
-	// Initialize optimal path from route params
 	useEffect(() => {
 		if (optimalPath) {
 			try {
@@ -72,7 +72,7 @@ const LiveTrackingScreen = () => {
 					});
 				}
 			} catch (error) {
-				console.error("Error parsing optimal path:", error);
+				console.log("Error parsing optimal path:", error);
 			}
 		}
 	}, [optimalPath]);
@@ -81,7 +81,7 @@ const LiveTrackingScreen = () => {
 		try {
 			const { status } = await Location.requestForegroundPermissionsAsync();
 			if (status !== "granted") {
-				console.error("Location permission not granted");
+				console.log("Location permission not granted");
 				return;
 			}
 
@@ -94,7 +94,7 @@ const LiveTrackingScreen = () => {
 			setCurrentLocation(newLocation);
 			sendLocation(emergencyResponseId as string, location, false);
 		} catch (error) {
-			console.error("Error getting/sending location:", error);
+			console.log("Error getting/sending location:", error);
 		}
 	};
 
@@ -109,27 +109,18 @@ const LiveTrackingScreen = () => {
 			providerLocation,
 		});
 
-		// Join the emergency room
 		joinEmergencyRoom(emergencyResponseId as string, userId, providerId);
-
-		// Start location updates for user
 		startLocationUpdates(emergencyResponseId as string, false);
 
 		const locationInterval = setInterval(sendLocationUpdate, 5000);
 
-		// Listen for location updates
 		socket.on(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
-		socket.on("optimal_path_update", handleOptimalPathUpdate);
-
-		// Debug: Log when location updates are received
-		socket.onAny((eventName, ...args) => {
-			console.log(`Received socket event: ${eventName}`, args);
-		});
+		socket.on(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, handleStatusUpdate);
 
 		return () => {
 			clearInterval(locationInterval);
 			socket.off(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
-			socket.off("optimal_path_update", handleOptimalPathUpdate);
+			socket.off(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, handleStatusUpdate);
 			socket.offAny();
 			stopLocationUpdates();
 		};
@@ -137,7 +128,6 @@ const LiveTrackingScreen = () => {
 
 	// Listen for provider location updates
 	const handleProviderLocationUpdate = (data: any) => {
-		console.log("📍Provider Location Update:", data);
 		if (data && data.location) {
 			console.log("New provider coordinates:", {
 				latitude: parseFloat(data.location.latitude),
@@ -165,11 +155,59 @@ const LiveTrackingScreen = () => {
 		}
 	};
 
+	const handleStatusUpdate = (data: { statusUpdate: string; message: string }) => {
+		Alert.alert("Status Updated", data.message, [
+			{
+				text: "OK",
+				onPress: () => {
+					if (isServiceProvider) {
+						router.push("/(service-provider-tabs)/home");
+					} else {
+						router.push("/(tabs)/home");
+					}
+				},
+			},
+		]);
+	};
+
+	const handleMarkArrived = async () => {
+		try {
+			setIsMarkingArrived(true);
+			await updateEmergencyResponse(emergencyResponseId as string, {
+				statusUpdate: "arrived",
+				updateDescription: "Service provider has arrived at the location",
+			});
+		} catch (error) {
+			console.log("Error marking as arrived:", error);
+			Alert.alert("Error", "Failed to update status");
+		} finally {
+			setIsMarkingArrived(false);
+		}
+	};
+
+	const handleRejectResponse = async () => {
+		try {
+			setIsRejecting(true);
+			await updateEmergencyResponse(emergencyResponseId as string, {
+				statusUpdate: "rejected",
+				updateDescription: "Service provider rejected the emergency response",
+			});
+			// The navigation will be handled by the socket event listener
+		} catch (error) {
+			console.log("Error rejecting response:", error);
+			Alert.alert("Error", "Failed to update status");
+		} finally {
+			setIsRejecting(false);
+		}
+	};
+
 	if (!userId) {
 		alert("USER ID missing");
 		router.back();
 		return;
 	}
+
+	console.log("🛣️ Optimal Path Data:", providerLocation, currentLocation);
 
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -231,7 +269,7 @@ const LiveTrackingScreen = () => {
 
 				<Marker
 					coordinate={providerLocation}
-					title="Service Provider"
+					title={isServiceProvider ? "You" : "Service Provider"}
 					description="Service provider location"
 				>
 					<View style={[styles.markerContainer, { backgroundColor: theme.success }]}>
@@ -244,14 +282,16 @@ const LiveTrackingScreen = () => {
 				</Marker>
 
 				{optimalPathData && optimalPathData.latlngs.length > 0 && (
-					<Polyline
-						coordinates={optimalPathData.latlngs.map(([longitude, latitude]) => ({
-							latitude: parseFloat(latitude.toString()),
-							longitude: parseFloat(longitude.toString()),
-						}))}
-						strokeWidth={3}
-						strokeColor={theme.success}
-					/>
+					<>
+						<Polyline
+							coordinates={optimalPathData.latlngs.map(([longitude, latitude]) => ({
+								latitude: parseFloat(latitude.toString()),
+								longitude: parseFloat(longitude.toString()),
+							}))}
+							strokeWidth={7}
+							strokeColor={"blue"}
+						/>
+					</>
 				)}
 			</MapView>
 
@@ -263,7 +303,9 @@ const LiveTrackingScreen = () => {
 					</View>
 					<View style={styles.locationRow}>
 						<View style={[styles.markerDot, { backgroundColor: theme.success }]} />
-						<Text style={[styles.locationText, { color: theme.text }]}>Service Provider</Text>
+						<Text style={[styles.locationText, { color: theme.text }]}>
+							{isServiceProvider ? "You" : "Service Provider"}
+						</Text>
 					</View>
 				</View>
 
@@ -289,6 +331,61 @@ const LiveTrackingScreen = () => {
 								{Math.ceil(optimalPathData.duration / 60)} minutes
 							</Text>
 						</View>
+					</View>
+				)}
+
+				{isServiceProvider && (
+					<View style={styles.actionButtons}>
+						<TouchableOpacity
+							style={[
+								styles.actionButton,
+								{ backgroundColor: theme.success },
+								isMarkingArrived && styles.actionButtonDisabled,
+							]}
+							onPress={handleMarkArrived}
+							disabled={isMarkingArrived || isRejecting}
+						>
+							{isMarkingArrived ? (
+								<ActivityIndicator
+									color="#fff"
+									size="small"
+								/>
+							) : (
+								<>
+									<Ionicons
+										name="checkmark-circle"
+										size={24}
+										color="#fff"
+									/>
+									<Text style={styles.actionButtonText}>Mark as Arrived</Text>
+								</>
+							)}
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[
+								styles.actionButton,
+								{ backgroundColor: theme.error },
+								isRejecting && styles.actionButtonDisabled,
+							]}
+							onPress={handleRejectResponse}
+							disabled={isMarkingArrived || isRejecting}
+						>
+							{isRejecting ? (
+								<ActivityIndicator
+									color="#fff"
+									size="small"
+								/>
+							) : (
+								<>
+									<Ionicons
+										name="close-circle"
+										size={24}
+										color="#fff"
+									/>
+									<Text style={styles.actionButtonText}>Reject Response</Text>
+								</>
+							)}
+						</TouchableOpacity>
 					</View>
 				)}
 			</View>
@@ -403,6 +500,29 @@ const styles = StyleSheet.create({
 		color: "#fff",
 		fontSize: 16,
 		fontWeight: "bold",
+	},
+	actionButtons: {
+		marginTop: 16,
+		flexDirection: "row",
+		justifyContent: "space-between",
+		gap: 12,
+	},
+	actionButton: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		padding: 12,
+		borderRadius: 8,
+		gap: 8,
+	},
+	actionButtonDisabled: {
+		opacity: 0.7,
+	},
+	actionButtonText: {
+		color: "#fff",
+		fontSize: 14,
+		fontWeight: "600",
 	},
 });
 

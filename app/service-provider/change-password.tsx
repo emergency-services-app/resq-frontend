@@ -15,17 +15,22 @@ import { useThemeStore } from "@/store/themeStore";
 import { lightTheme, darkTheme } from "@/constants/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuthStore } from "@/store/authStore";
 import { changeProviderPassword } from "@/services/api/service-provider";
 
 const ChangePasswordScreen = () => {
 	const router = useRouter();
 	const { isDarkMode } = useThemeStore();
 	const theme = isDarkMode ? darkTheme : lightTheme;
+
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+
+	// Visibility toggles
+	const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+	const [showNewPassword, setShowNewPassword] = useState(false);
+	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
 	const handleChangePassword = async () => {
 		if (!currentPassword || !newPassword || !confirmPassword) {
@@ -83,40 +88,79 @@ const ChangePasswordScreen = () => {
 				</LinearGradient>
 
 				<View style={styles.content}>
+					{/* Current Password */}
 					<View style={[styles.formGroup, { backgroundColor: theme.surface }]}>
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Current Password</Text>
-						<TextInput
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={currentPassword}
-							onChangeText={setCurrentPassword}
-							secureTextEntry
-							placeholder="Enter current password"
-							placeholderTextColor={theme.textSecondary}
-						/>
+						<View style={styles.inputWrapper}>
+							<TextInput
+								style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+								value={currentPassword}
+								onChangeText={setCurrentPassword}
+								secureTextEntry={!showCurrentPassword}
+								placeholder="Enter current password"
+								placeholderTextColor={theme.textSecondary}
+							/>
+							<TouchableOpacity
+								onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+								style={styles.eyeIcon}
+							>
+								<Ionicons
+									name={showCurrentPassword ? "eye-off" : "eye"}
+									size={20}
+									color={theme.textSecondary}
+								/>
+							</TouchableOpacity>
+						</View>
 					</View>
 
+					{/* New Password */}
 					<View style={[styles.formGroup, { backgroundColor: theme.surface }]}>
 						<Text style={[styles.label, { color: theme.textSecondary }]}>New Password</Text>
-						<TextInput
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={newPassword}
-							onChangeText={setNewPassword}
-							secureTextEntry
-							placeholder="Enter new password"
-							placeholderTextColor={theme.textSecondary}
-						/>
+						<View style={styles.inputWrapper}>
+							<TextInput
+								style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+								value={newPassword}
+								onChangeText={setNewPassword}
+								secureTextEntry={!showNewPassword}
+								placeholder="Enter new password"
+								placeholderTextColor={theme.textSecondary}
+							/>
+							<TouchableOpacity
+								onPress={() => setShowNewPassword(!showNewPassword)}
+								style={styles.eyeIcon}
+							>
+								<Ionicons
+									name={showNewPassword ? "eye-off" : "eye"}
+									size={20}
+									color={theme.textSecondary}
+								/>
+							</TouchableOpacity>
+						</View>
 					</View>
 
+					{/* Confirm New Password */}
 					<View style={[styles.formGroup, { backgroundColor: theme.surface }]}>
 						<Text style={[styles.label, { color: theme.textSecondary }]}>Confirm New Password</Text>
-						<TextInput
-							style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-							value={confirmPassword}
-							onChangeText={setConfirmPassword}
-							secureTextEntry
-							placeholder="Confirm new password"
-							placeholderTextColor={theme.textSecondary}
-						/>
+						<View style={styles.inputWrapper}>
+							<TextInput
+								style={[styles.input, { color: theme.text, borderColor: theme.border }]}
+								value={confirmPassword}
+								onChangeText={setConfirmPassword}
+								secureTextEntry={!showConfirmPassword}
+								placeholder="Confirm new password"
+								placeholderTextColor={theme.textSecondary}
+							/>
+							<TouchableOpacity
+								onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+								style={styles.eyeIcon}
+							>
+								<Ionicons
+									name={showConfirmPassword ? "eye-off" : "eye"}
+									size={20}
+									color={theme.textSecondary}
+								/>
+							</TouchableOpacity>
+						</View>
 					</View>
 
 					<TouchableOpacity
@@ -175,11 +219,21 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		marginBottom: 8,
 	},
+	inputWrapper: {
+		position: "relative",
+		justifyContent: "center",
+	},
 	input: {
 		borderWidth: 1,
 		borderRadius: 8,
 		padding: 12,
+		paddingRight: 40,
 		fontSize: 16,
+	},
+	eyeIcon: {
+		position: "absolute",
+		right: 12,
+		top: 12,
 	},
 	button: {
 		padding: 15,
