@@ -39,7 +39,8 @@ export const authApi = {
 		return api.post(userEndpoints.forgotPassword, data);
 	},
 	resetPassword: async (data: ResetPasswordProps) => {
-		return api.post(userEndpoints.resetPassword, data);
+		const response = await api.post(userEndpoints.resetPassword, data);
+		return response.data;
 	},
 	updateUser: async (data: Partial<UpdateUserProps>) => {
 		const response = await api.put(userEndpoints.updateUser, data);

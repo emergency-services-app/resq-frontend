@@ -39,7 +39,7 @@ const OTPScreen = () => {
 				setIsLoading,
 				(res) => {
 					alert("OTP verified successfully!");
-					router.replace("/(tabs)/home");
+					router.replace("/(auth)/sign-in");
 				},
 				() => {
 					alert("OTP verification failed! Try again.");
