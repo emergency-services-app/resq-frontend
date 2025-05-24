@@ -11,6 +11,7 @@ import { lightTheme, darkTheme } from "@/constants/theme";
 import { useAuthStore } from "@/store/authStore";
 import { getEmergencyResponseById, updateEmergencyResponse } from "@/services/api/emergency-response";
 import { SocketEventEnums } from "@/constants";
+import { requestHandler } from "@/lib/utils";
 
 interface ILocation {
 	latitude: number;
@@ -21,6 +22,15 @@ interface IOptimalPath {
 	latlngs: Array<[number, number]>;
 	duration: number;
 	distance: number;
+}
+
+interface StatusUpdateData {
+	statusUpdate: string;
+	message: string;
+	status?: string;
+	updateDescription?: string;
+	providerId?: string;
+	userId?: string;
 }
 
 const LiveTrackingScreen = () => {
@@ -91,36 +101,80 @@ const LiveTrackingScreen = () => {
 				longitude: location.coords.longitude,
 			};
 
+			console.log("📍 Sending location update:", {
+				newLocation,
+				emergencyResponseId,
+				isServiceProvider,
+				socketId: socket?.id,
+				isConnected: socket?.connected,
+			});
+
 			setCurrentLocation(newLocation);
-			sendLocation(emergencyResponseId as string, location, false);
+			sendLocation(emergencyResponseId as string, location, isServiceProvider);
 		} catch (error) {
 			console.log("Error getting/sending location:", error);
 		}
 	};
 
 	useEffect(() => {
-		if (!socket || !emergencyResponseId || !providerId || !userId) return;
+		if (!socket || !emergencyResponseId || !providerId || !userId) {
+			console.log("Missing required data for socket setup:", {
+				hasSocket: !!socket,
+				emergencyResponseId,
+				providerId,
+				userId,
+			});
+			return;
+		}
 
-		console.log("Initializing live tracking with:", {
+		console.log("🔄 Initializing live tracking with:", {
 			emergencyResponseId,
 			providerId,
 			userId,
-			currentLocation,
-			providerLocation,
+			socketId: socket.id,
+			isConnected: socket.connected,
 		});
 
+		// Set up socket event listeners before joining rooms
+		socket.on(SocketEventEnums.UPDATE_LOCATION, (data) => {
+			console.log("📍 Location update received in component:", {
+				data,
+				socketId: socket.id,
+				isConnected: socket.connected,
+			});
+			handleProviderLocationUpdate(data);
+		});
+
+		// Register global status update handler
+		const { onEmergencyResponseStatusUpdate } = useSocketStore.getState();
+		onEmergencyResponseStatusUpdate((data: StatusUpdateData) => {
+			console.log("🔄 Global status update received in component:", data);
+			if (data.statusUpdate === "arrived" || data.statusUpdate === "rejected") {
+				handleStatusUpdate(data);
+			}
+		});
+
+		// Log all socket events for debugging
+		socket.onAny((eventName, ...args) => {
+			console.log(`📡 Socket event received: ${eventName}`, {
+				eventName,
+				args,
+				socketId: socket.id,
+				isConnected: socket.connected,
+			});
+		});
+
+		// Join rooms after setting up listeners
 		joinEmergencyRoom(emergencyResponseId as string, userId, providerId);
-		startLocationUpdates(emergencyResponseId as string, false);
+		startLocationUpdates(emergencyResponseId as string, isServiceProvider);
 
 		const locationInterval = setInterval(sendLocationUpdate, 5000);
 
-		socket.on(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
-		socket.on(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, handleStatusUpdate);
-
 		return () => {
+			console.log("🧹 Cleaning up socket listeners");
 			clearInterval(locationInterval);
-			socket.off(SocketEventEnums.UPDATE_LOCATION, handleProviderLocationUpdate);
-			socket.off(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, handleStatusUpdate);
+			socket.off(SocketEventEnums.UPDATE_LOCATION);
+			socket.off(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED);
 			socket.offAny();
 			stopLocationUpdates();
 		};
@@ -129,9 +183,11 @@ const LiveTrackingScreen = () => {
 	// Listen for provider location updates
 	const handleProviderLocationUpdate = (data: any) => {
 		if (data && data.location) {
-			console.log("New provider coordinates:", {
-				latitude: parseFloat(data.location.latitude),
-				longitude: parseFloat(data.location.longitude),
+			console.log("📍 Processing provider location update:", {
+				data,
+				currentProviderLocation: providerLocation,
+				socketId: socket?.id,
+				isConnected: socket?.connected,
 			});
 			const newProviderLocation = {
 				latitude: parseFloat(data.location.latitude),
@@ -139,7 +195,7 @@ const LiveTrackingScreen = () => {
 			};
 			setProviderLocation(newProviderLocation);
 		} else {
-			console.log("Invalid location data received:", data);
+			console.log("❌ Invalid location data received:", data);
 		}
 	};
 
@@ -155,28 +211,36 @@ const LiveTrackingScreen = () => {
 		}
 	};
 
-	const handleStatusUpdate = (data: { statusUpdate: string; message: string }) => {
-		Alert.alert("Status Updated", data.message, [
-			{
-				text: "OK",
-				onPress: () => {
-					if (isServiceProvider) {
-						router.push("/(service-provider-tabs)/home");
-					} else {
-						router.push("/(tabs)/home");
-					}
-				},
-			},
-		]);
+	const handleStatusUpdate = (data: StatusUpdateData) => {
+		console.log("🔄 Processing status update:", {
+			data,
+			isServiceProvider,
+			currentUserId: userId,
+		});
+
+		// Only show alert for users
+		if (!isServiceProvider) {
+			Alert.alert("Status Updated", data.message || data.updateDescription);
+		}
 	};
 
 	const handleMarkArrived = async () => {
 		try {
-			setIsMarkingArrived(true);
-			await updateEmergencyResponse(emergencyResponseId as string, {
-				statusUpdate: "arrived",
-				updateDescription: "Service provider has arrived at the location",
-			});
+			await requestHandler(
+				() =>
+					updateEmergencyResponse(emergencyResponseId as string, {
+						statusUpdate: "arrived",
+						updateDescription: "Service provider has arrived at the location",
+					}),
+				setIsMarkingArrived,
+				(res) => {
+					console.log("Marked as arrived", res);
+					// router.push("/(service-provider-tabs)/home");
+				},
+				() => {
+					Alert.alert("Error", "Failed to update status");
+				}
+			);
 		} catch (error) {
 			console.log("Error marking as arrived:", error);
 			Alert.alert("Error", "Failed to update status");
@@ -187,12 +251,23 @@ const LiveTrackingScreen = () => {
 
 	const handleRejectResponse = async () => {
 		try {
-			setIsRejecting(true);
-			await updateEmergencyResponse(emergencyResponseId as string, {
-				statusUpdate: "rejected",
-				updateDescription: "Service provider rejected the emergency response",
-			});
-			// The navigation will be handled by the socket event listener
+			await requestHandler(
+				() =>
+					updateEmergencyResponse(emergencyResponseId as string, {
+						statusUpdate: "rejected",
+						updateDescription: "Service provider rejected the emergency response",
+					}),
+				setIsRejecting,
+				(res) => {
+					// The navigation will be handled by the socket event listener
+					socket?.emit(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, {
+						emergencyResponseId: emergencyResponseId as string,
+					});
+				},
+				() => {
+					Alert.alert("Error", "Failed to update status");
+				}
+			);
 		} catch (error) {
 			console.log("Error rejecting response:", error);
 			Alert.alert("Error", "Failed to update status");
@@ -206,8 +281,6 @@ const LiveTrackingScreen = () => {
 		router.back();
 		return;
 	}
-
-	console.log("🛣️ Optimal Path Data:", providerLocation, currentLocation);
 
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>

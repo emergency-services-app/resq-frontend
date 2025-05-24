@@ -3,6 +3,8 @@ import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
 import { BASE_URL, SocketEventEnums, TOKEN_KEY } from "@/constants";
 import io, { Socket } from "socket.io-client";
+import { router } from "expo-router";
+import { Alert } from "react-native";
 
 interface LocationData {
 	latitude: string;
@@ -23,6 +25,15 @@ interface ServiceProvider {
 	status: "available" | "off_duty" | "assigned";
 }
 
+interface StatusUpdateData {
+	statusUpdate: string;
+	message: string;
+	status?: string;
+	updateDescription?: string;
+	providerId?: string;
+	userId?: string;
+}
+
 interface ISocketStore {
 	socket: Socket | null;
 	locationWatcher: Location.LocationSubscription | null;
@@ -40,6 +51,7 @@ interface ISocketStore {
 	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => void;
 	requestEmergencyService: (serviceType: string, userLocation: LocationData) => Promise<void>;
 	updateProviderStatus: (status: "available" | "off_duty" | "assigned") => void;
+	onEmergencyResponseStatusUpdate: (callback: (data: StatusUpdateData) => void) => void;
 	clearError: () => void;
 }
 
@@ -60,6 +72,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 				return;
 			}
 
+			console.log("🔌 Connecting to socket server:", BASE_URL);
 			const socket = io(BASE_URL, {
 				auth: { token },
 				reconnection: true,
@@ -70,7 +83,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			});
 
 			socket.on(SocketEventEnums.CONNECTION_EVENT, () => {
-				console.log("🔌 Socket connected");
+				console.log("🔌 Socket connected successfully");
 				set({ isConnected: true, lastError: null });
 			});
 
@@ -136,6 +149,30 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 				}));
 			});
 
+			socket.on(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, (data: StatusUpdateData) => {
+				console.log("🔄 Global status update received:", data);
+
+				// Handle navigation based on the message content
+				if (data.message.includes("You have marked yourself as arrived")) {
+					Alert.alert("Status Update", "You have marked yourself as arrived", [
+						{
+							text: "OK",
+							onPress: () => router.push("/(service-provider-tabs)/home"),
+						},
+					]);
+				} else if (
+					data.message.includes("Service provider has arrived") ||
+					data.message.includes("Service provider has rejected")
+				) {
+					Alert.alert("Status Update", "Service provider has arrived", [
+						{
+							text: "OK",
+							onPress: () => router.push("/(tabs)/home"),
+						},
+					]);
+				}
+			});
+
 			set({ socket });
 		} catch (error) {
 			console.log("Error connecting to socket:", error);
@@ -156,12 +193,29 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 	joinEmergencyRoom: (emergencyResponseId: string, userId: string, providerId: string) => {
 		const { socket } = get();
 		if (socket) {
+			console.log("🔄 Joining rooms:", {
+				emergencyRoom: `emergency:${emergencyResponseId}`,
+				userRoom: `user:${userId}`,
+				socketId: socket.id,
+			});
+
+			// Join emergency room
 			socket.emit(SocketEventEnums.JOIN_EMERGENCY_ROOM, {
 				emergencyResponseId,
 				userId,
 				providerId,
 			});
-			console.log("✅ Joined emergency room");
+
+			// Join user-specific room
+			socket.emit(SocketEventEnums.JOIN_EMERGENCY_ROOM, {
+				emergencyResponseId: userId,
+				userId,
+				providerId,
+			});
+
+			console.log("✅ Room join requests sent");
+		} else {
+			console.log("❌ Cannot join rooms - socket not connected");
 		}
 	},
 
@@ -169,6 +223,17 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 		const { socket } = get();
 		if (socket) {
 			const event = isProvider ? SocketEventEnums.SEND_LOCATION : SocketEventEnums.SEND_USER_LOCATION;
+			console.log(`📡 Sending ${isProvider ? "provider" : "user"} location:`, {
+				event,
+				emergencyResponseId,
+				location: {
+					latitude: location.coords.latitude,
+					longitude: location.coords.longitude,
+				},
+				socketId: socket.id,
+				isConnected: socket.connected,
+			});
+
 			socket.emit(event, {
 				emergencyResponseId,
 				location: {
@@ -176,7 +241,8 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 					longitude: location.coords.longitude.toString(),
 				},
 			});
-			console.log(`📡 ${isProvider ? "Provider" : "User"} location sent:`, location.coords);
+		} else {
+			console.log("❌ Cannot send location - socket not connected");
 		}
 	},
 
@@ -191,6 +257,12 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 				return;
 			}
 
+			console.log(`📍 Starting ${isProvider ? "provider" : "user"} location updates:`, {
+				emergencyResponseId,
+				socketId: get().socket?.id,
+				isConnected: get().socket?.connected,
+			});
+
 			// Enable background location updates for emergency tracking
 			await Location.enableNetworkProviderAsync();
 
@@ -202,6 +274,11 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 				},
 				(location) => {
 					try {
+						console.log(`📍 ${isProvider ? "Provider" : "User"} location update:`, {
+							latitude: location.coords.latitude,
+							longitude: location.coords.longitude,
+							timestamp: new Date().toISOString(),
+						});
 						sendLocation(emergencyResponseId, location, isProvider);
 					} catch (error) {
 						console.log("Error sending location update:", error);
@@ -210,7 +287,7 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			);
 
 			set({ locationWatcher: watcher, lastError: null });
-			console.log(`📍 Started ${isProvider ? "provider" : "user"} location updates with high frequency`);
+			console.log(`✅ Started ${isProvider ? "provider" : "user"} location updates with high frequency`);
 		} catch (error) {
 			console.log("Error starting location updates:", error);
 			set({ lastError: "Failed to start location updates" });
@@ -229,14 +306,22 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 	onLocationUpdate: (callback: (data: LocationUpdate) => void) => {
 		const { socket } = get();
 		if (socket) {
-			socket.on(SocketEventEnums.UPDATE_LOCATION, callback);
+			console.log("📡 Registering location update listener");
+			socket.on(SocketEventEnums.UPDATE_LOCATION, (data: LocationUpdate) => {
+				console.log("📍 Location update received in store:", data);
+				callback(data);
+			});
 		}
 	},
 
 	onUserLocationUpdate: (callback: (data: LocationUpdate) => void) => {
 		const { socket } = get();
 		if (socket) {
-			socket.on(SocketEventEnums.UPDATE_USER_LOCATION, callback);
+			console.log("📡 Registering user location update listener");
+			socket.on(SocketEventEnums.UPDATE_USER_LOCATION, (data: LocationUpdate) => {
+				console.log("📍 User location update received in store:", data);
+				callback(data);
+			});
 		}
 	},
 
@@ -257,6 +342,17 @@ export const useSocketStore = create<ISocketStore>((set, get) => ({
 			socket.emit(SocketEventEnums.UPDATE_PROVIDER_STATUS, { status });
 			set({ providerStatus: status });
 			console.log("📊 Provider status updated:", status);
+		}
+	},
+
+	onEmergencyResponseStatusUpdate: (callback: (data: StatusUpdateData) => void) => {
+		const { socket } = get();
+		if (socket) {
+			console.log("📡 Registering global status update listener");
+			socket.on(SocketEventEnums.EMERGENCY_RESPONSE_STATUS_UPDATED, (data: StatusUpdateData) => {
+				console.log("🔄 Global status update callback triggered:", data);
+				callback(data);
+			});
 		}
 	},
 

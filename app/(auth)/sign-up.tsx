@@ -122,7 +122,7 @@ const SignUpScreen = () => {
 			]);
 		} catch (error: any) {
 			console.log("Registration error:", error);
-			Alert.alert("Error", error?.message || "Registration failed. Please try again.", [{ text: "OK" }]);
+			Alert.alert("Error", error?.response.data.message || "Registration failed. Please try again.", [{ text: "OK" }]);
 		} finally {
 			setIsLoading(false);
 		}
