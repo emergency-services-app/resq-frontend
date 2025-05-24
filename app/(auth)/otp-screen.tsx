@@ -38,6 +38,7 @@ const OTPScreen = () => {
 				async () => await authApi.verifyOTP({ otpToken: otp, userId }),
 				setIsLoading,
 				(res) => {
+					console.log("OTP verified successfully!", res);
 					alert("OTP verified successfully!");
 					router.replace("/(auth)/sign-in");
 				},
@@ -99,7 +100,7 @@ const OTPScreen = () => {
 			)}
 
 			<Text style={styles.resendText}>
-				Didn’t Get The Code? <Text style={styles.boldText}>Request Again</Text>
+				Didn't Get The Code? <Text style={styles.boldText}></Text>
 			</Text>
 
 			<TouchableOpacity

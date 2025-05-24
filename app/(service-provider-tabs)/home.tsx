@@ -72,32 +72,6 @@ const ServiceProviderHomeScreen = () => {
 					optimalPath: JSON.stringify(data?.optimalPath),
 				},
 			});
-
-			// const parameters = {
-			// 	responseId: emergencyResponse.id,
-			// 	providerLat: emergencyResponse.destinationLocation?.latitude?.toString() || "",
-			// 	providerLng: emergencyResponse.destinationLocation?.longitude?.toString() || "",
-			// 	emergencyLat: emergencyResponse.originLocation?.latitude?.toString() || "",
-			// 	emergencyLng: emergencyResponse.originLocation?.longitude?.toString() || "",
-			// 	optimalPath: JSON.stringify(optimalPath || []),
-			// 	status: emergencyResponse.statusUpdate || "assigned",
-			// };
-
-			// router.replace({
-			// 	pathname: "../(service-provider)/live-tracking",
-			// 	params: parameters,
-			// });
-
-			// const notificationTitle = "New Emergency Assignment";
-			// const notificationBody = `Emergency Type: ${
-			// 	emergencyResponse.emergencyType
-			// }\nLocation: ${emergencyResponse.originLocation?.latitude?.toString()}, ${emergencyResponse.originLocation?.latitude?.toString()}\nDistance: ${
-			// 	optimalPath?.distance || "Calculating..."
-			// }`;
-
-			// scheduleLocalNotification(notificationTitle, notificationBody, {
-			// 	emergencyResponse,
-			// });
 		};
 
 		const handleNotification = async (data: any) => {

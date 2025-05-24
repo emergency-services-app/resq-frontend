@@ -126,10 +126,10 @@ export interface ICreateEmergencyResponse {
 
 export interface ICreateEmergencyContact {
 	id?: string;
-	contactName: string;
-	contactNumber: string;
-	contactEmail: string;
-	contactAddress: string;
+	name: string;
+	phoneNumber: string;
+	isCommanContact: boolean;
+	relationship: string;
 }
 
 export interface IEmergencyRequest {

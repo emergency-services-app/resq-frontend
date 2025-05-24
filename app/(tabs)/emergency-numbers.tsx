@@ -9,6 +9,7 @@ import {
 	SafeAreaView,
 	StatusBar,
 	ActivityIndicator,
+	Alert,
 } from "react-native";
 import Icon from "@expo/vector-icons/FontAwesome";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,7 +17,7 @@ import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThemeStore } from "../../store/themeStore";
 import { lightTheme, darkTheme } from "../../constants/theme";
-import { getUsersContacts } from "../../services/api/emergency-contacts";
+import { getUsersContacts, deleteContact } from "../../services/api/emergency-contacts";
 
 const EmergencyContactsScreen = () => {
 	const router = useRouter();
@@ -27,23 +28,44 @@ const EmergencyContactsScreen = () => {
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		const loadContacts = async () => {
-			try {
-				const response = await getUsersContacts();
-				console.log(response, "Contacts response");
-
-				setUserContacts(response.data.data);
-
-				setError(null);
-			} catch (err) {
-				setError("Failed to load contacts");
-				console.log("Contacts fetch error:", err);
-			} finally {
-				setLoading(false);
-			}
-		};
 		loadContacts();
 	}, []);
+
+	const loadContacts = async () => {
+		try {
+			setLoading(true);
+			const response = await getUsersContacts();
+			setUserContacts(response.data.data);
+			setError(null);
+		} catch (err) {
+			setError("Failed to load contacts");
+			console.log("Contacts fetch error:", err);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleDeleteContact = async (id: string) => {
+		Alert.alert("Delete Contact", "Are you sure you want to delete this contact?", [
+			{
+				text: "Cancel",
+				style: "cancel",
+			},
+			{
+				text: "Delete",
+				style: "destructive",
+				onPress: async () => {
+					try {
+						await deleteContact(id);
+						Alert.alert("Success", "Contact deleted successfully");
+						loadContacts(); // Reload the contacts list
+					} catch (error) {
+						Alert.alert("Error", "Failed to delete contact");
+					}
+				},
+			},
+		]);
+	};
 
 	const emergencyServices = [
 		{
@@ -145,7 +167,7 @@ const EmergencyContactsScreen = () => {
 						<Text style={[styles.emptyText, { color: theme.textSecondary }]}>No user contacts found</Text>
 					) : (
 						userContacts.map((contact) => (
-							<TouchableOpacity
+							<View
 								key={contact.id}
 								style={[styles.card, { backgroundColor: theme.surface }]}
 							>
@@ -163,17 +185,39 @@ const EmergencyContactsScreen = () => {
 										<Text style={[styles.contactRelation, { color: theme.textSecondary }]}>{contact.phoneNumber}</Text>
 									</View>
 								</View>
-								<TouchableOpacity
-									style={[styles.callButton, { backgroundColor: theme.primary }]}
-									onPress={() => Linking.openURL(`tel:${contact.phoneNumber}`)}
-								>
-									<Icon
-										name="phone"
-										size={20}
-										color="#fff"
-									/>
-								</TouchableOpacity>
-							</TouchableOpacity>
+								<View style={styles.contactActions}>
+									<TouchableOpacity
+										style={[styles.actionButton, { backgroundColor: theme.primary }]}
+										onPress={() => router.push(`/edit-emergency-contact?id=${contact.id}`)}
+									>
+										<Icon
+											name="edit"
+											size={16}
+											color="#fff"
+										/>
+									</TouchableOpacity>
+									<TouchableOpacity
+										style={[styles.actionButton, { backgroundColor: theme.error }]}
+										onPress={() => handleDeleteContact(contact.id)}
+									>
+										<Icon
+											name="trash"
+											size={16}
+											color="#fff"
+										/>
+									</TouchableOpacity>
+									<TouchableOpacity
+										style={[styles.callButton, { backgroundColor: theme.primary }]}
+										onPress={() => Linking.openURL(`tel:${contact.phoneNumber}`)}
+									>
+										<Icon
+											name="phone"
+											size={20}
+											color="#fff"
+										/>
+									</TouchableOpacity>
+								</View>
+							</View>
 						))
 					)}
 				</View>
@@ -289,6 +333,18 @@ const styles = StyleSheet.create({
 	contactRelation: {
 		fontSize: 14,
 		marginTop: 4,
+	},
+	contactActions: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+	},
+	actionButton: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		justifyContent: "center",
+		alignItems: "center",
 	},
 	callButton: {
 		width: 40,

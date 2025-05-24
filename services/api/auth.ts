@@ -28,8 +28,7 @@ export const authApi = {
 		return response.data;
 	},
 	verifyOTP: async (data: VerifyUserProps) => {
-		const response = await api.post(userEndpoints.verify, data);
-		return response.data;
+		return api.post(userEndpoints.verify, data);
 	},
 	resendOTP: async () => {
 		const response = await api.post(userEndpoints.verify);
@@ -39,8 +38,7 @@ export const authApi = {
 		return api.post(userEndpoints.forgotPassword, data);
 	},
 	resetPassword: async (data: ResetPasswordProps) => {
-		const response = await api.post(userEndpoints.resetPassword, data);
-		return response.data;
+		return api.post(userEndpoints.resetPassword, data);
 	},
 	updateUser: async (data: Partial<UpdateUserProps>) => {
 		const response = await api.put(userEndpoints.updateUser, data);
