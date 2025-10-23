@@ -9,6 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "projectId": "f2147038-d247-45b4-b614-47ce38f9b839",
+    "jsEngine": "jsc",
     "ios": {
       "supportsTablet": true,
       "config": {

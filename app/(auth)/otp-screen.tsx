@@ -2,7 +2,16 @@ import { requestHandler } from "@/lib/utils";
 import { authApi } from "@/services/api/auth";
 import { useGlobalSearchParams, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ActivityIndicator } from "react-native";
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	Image,
+	StyleSheet,
+	ActivityIndicator,
+	Keyboard,
+} from "react-native";
 
 const OTPScreen = () => {
 	const router = useRouter();
@@ -69,19 +78,28 @@ const OTPScreen = () => {
 							key={index}
 							style={styles.otpInput}
 							ref={(input) => (inputRefs.current[index] = input)}
-							keyboardType="numeric"
 							maxLength={1}
 							onChangeText={(text) => {
 								const newOtp = otp.split("");
-								if (newOtp.length < 6) {
-									inputRefs?.current[index + 1]?.focus();
-								}
 								newOtp[index] = text;
-								setOtp(newOtp.join(""));
+								const updatedOtp = newOtp.join("");
+								setOtp(updatedOtp);
+
+								if (text && index < inputRefs.current.length - 1) {
+									inputRefs.current[index + 1]?.focus();
+								}
+
+								console.log("updatedOtp:", updatedOtp.length, inputRefs.current.length);
+								if (
+									updatedOtp.length === inputRefs.current.length &&
+									!updatedOtp.includes("")
+								) {
+									Keyboard.dismiss();
+								}
 							}}
 							onKeyPress={({ nativeEvent }) => {
-								if (nativeEvent.key === "Backspace") {
-									inputRefs?.current[index - 1]?.focus();
+								if (nativeEvent.key === "Backspace" && !otp[index]) {
+									inputRefs.current[index - 1]?.focus();
 								}
 							}}
 						/>
@@ -107,7 +125,9 @@ const OTPScreen = () => {
 				style={styles.button}
 				onPress={handleOtpSubmit}
 			>
-				<Text style={styles.buttonText}>{isLoading ? <ActivityIndicator /> : "Submit"}</Text>
+				<Text style={styles.buttonText}>
+					{isLoading ? <ActivityIndicator /> : "Submit"}
+				</Text>
 			</TouchableOpacity>
 		</View>
 	);
